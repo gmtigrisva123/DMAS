@@ -1,0 +1,3 @@
+# RQ1 on the development bank with the primary reasoning model.
+rq1_dev_full_gpt-oss-120b.json bench --bank dev --backend openai --base-url https://api.groq.com/openai/v1 --model openai/gpt-oss-120b --no-narrative
+rq1_dev_modelonly_gpt-oss-120b.json bench --bank dev --model-only --backend openai --base-url https://api.groq.com/openai/v1 --model openai/gpt-oss-120b --no-narrative

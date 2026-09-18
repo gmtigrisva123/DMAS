@@ -1,0 +1,45 @@
+# python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.eggs/
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# virtual envs
+.venv/
+venv/
+env/
+
+# api keys live in the environment, never in the tree
+.env
+.env.*
+
+# runtime output (what `make clean` removes)
+.dmas_cache/
+artifacts/
+*.log
+
+# the supplementary archive built by experiments/make_archive.sh
+*.zip
+
+# the Refactory corpus is public but not ours to redistribute, keep a local
+# unpack out of the repo (it is passed with `dmas refactory --data <path>`)
+/refactory/
+/data/
+
+# editors / os
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+.ipynb_checkpoints/
+
+# NOT ignored on purpose: experiments/results, experiments/live_cache and
+# experiments/figures are the paper's evidence and travel with the code

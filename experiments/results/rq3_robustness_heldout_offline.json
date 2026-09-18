@@ -1,0 +1,43 @@
+{
+  "overall": {
+    "n": 150.0,
+    "top1_stability": 1.0,
+    "mean_overlap": 1.0,
+    "verified_mutants": 150.0
+  },
+  "by_transform": {
+    "all-combined": {
+      "n": 25.0,
+      "top1_stability": 1.0,
+      "mean_overlap": 1.0
+    },
+    "expand-augmented": {
+      "n": 25.0,
+      "top1_stability": 1.0,
+      "mean_overlap": 1.0
+    },
+    "inject-noise": {
+      "n": 25.0,
+      "top1_stability": 1.0,
+      "mean_overlap": 1.0
+    },
+    "invert-conditionals": {
+      "n": 25.0,
+      "top1_stability": 1.0,
+      "mean_overlap": 1.0
+    },
+    "rename-identifiers": {
+      "n": 25.0,
+      "top1_stability": 1.0,
+      "mean_overlap": 1.0
+    },
+    "split-assignments": {
+      "n": 25.0,
+      "top1_stability": 1.0,
+      "mean_overlap": 1.0
+    }
+  },
+  "unverifiable_mutants_skipped": 0,
+  "regressions": [],
+  "bank": "heldout"
+}

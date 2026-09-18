@@ -1,0 +1,25 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      # zero runtime dependencies, pytest is the only dev dependency
+      - run: python -m pip install -e ".[dev]"
+      # no api key in ci, so the backend resolves to the offline reasoner
+      - run: python -m pytest
+      # the cli must run straight from the checkout too
+      - run: ./dmas demo > /dev/null

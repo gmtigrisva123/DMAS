@@ -1,0 +1,3 @@
+# RQ1 on the held-out bank with the primary reasoning model.
+rq1_heldout_full_gpt-oss-120b.json bench --bank heldout --backend openai --base-url https://api.groq.com/openai/v1 --model openai/gpt-oss-120b --no-narrative
+rq1_heldout_modelonly_gpt-oss-120b.json bench --bank heldout --model-only --backend openai --base-url https://api.groq.com/openai/v1 --model openai/gpt-oss-120b --no-narrative
