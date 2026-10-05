@@ -1,0 +1,535 @@
+{
+  "caveat": "The taxonomy, the detection rules and this labelled bank were developed together. These figures establish internal validity (the pipeline recovers the beliefs it is designed to name) and must not be read as generalisation to unseen student code.",
+  "backend": "offline",
+  "degraded_rows": 0,
+  "n_labelled": 23,
+  "n_clean": 6,
+  "top1_accuracy": 1.0,
+  "recall_any": 1.0,
+  "micro_precision": 0.675,
+  "micro_recall": 1.0,
+  "micro_f1": 0.806,
+  "macro_f1": 0.9085,
+  "cohen_kappa": 1.0,
+  "false_positive_rate": 0.0,
+  "clean_flagged": [],
+  "divergence_localisation_rate": 0.7391,
+  "mean_seconds_per_submission": 0.0587,
+  "baseline_top1_accuracy": 0.0,
+  "per_label": {
+    "bs.interval-convention-mismatch": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "support": 2
+    },
+    "bs.no-progress-update": {
+      "precision": 0.5,
+      "recall": 1.0,
+      "f1": 0.667,
+      "support": 1
+    },
+    "cx.asymptotic-gap": {
+      "precision": 0.3,
+      "recall": 1.0,
+      "f1": 0.462,
+      "support": 3
+    },
+    "cx.membership-in-list": {
+      "precision": 0.5,
+      "recall": 1.0,
+      "f1": 0.667,
+      "support": 1
+    },
+    "dp.recomputed-subproblems": {
+      "precision": 0.667,
+      "recall": 1.0,
+      "f1": 0.8,
+      "support": 2
+    },
+    "dp.transition-order": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "support": 1
+    },
+    "ds.wrong-container-choice": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "support": 1
+    },
+    "graph.list-as-queue": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "support": 1
+    },
+    "graph.list-as-visited": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "support": 1
+    },
+    "graph.visited-on-dequeue": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "support": 1
+    },
+    "greedy.local-optimum-assumed": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "support": 3
+    },
+    "logic.wrong-comparison-boundary": {
+      "precision": 0.5,
+      "recall": 1.0,
+      "f1": 0.667,
+      "support": 1
+    },
+    "py.float-index": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "support": 1
+    },
+    "py.mutable-default-argument": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "support": 1
+    },
+    "py.mutate-during-iteration": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "support": 1
+    },
+    "rec.missing-base-case": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "support": 1
+    },
+    "run.index-out-of-range": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "support": 3
+    },
+    "search.linear-scan-when-ordered": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "support": 1
+    },
+    "var.uninitialised": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "support": 1
+    }
+  },
+  "rows": [
+    {
+      "submission": "lb_inclusive_bound",
+      "problem": "lower_bound",
+      "gold": [
+        "bs.interval-convention-mismatch"
+      ],
+      "predicted": [
+        "bs.interval-convention-mismatch"
+      ],
+      "top1": "bs.interval-convention-mismatch",
+      "confidence": 0.7686,
+      "correct": true,
+      "located": true,
+      "backend": "offline",
+      "degraded": false
+    },
+    {
+      "submission": "lb_closed_guard",
+      "problem": "lower_bound",
+      "gold": [
+        "bs.interval-convention-mismatch",
+        "run.index-out-of-range"
+      ],
+      "predicted": [
+        "run.index-out-of-range",
+        "bs.no-progress-update",
+        "bs.interval-convention-mismatch"
+      ],
+      "top1": "run.index-out-of-range",
+      "confidence": 0.736,
+      "correct": true,
+      "located": true,
+      "backend": "offline",
+      "degraded": false
+    },
+    {
+      "submission": "lb_no_progress",
+      "problem": "lower_bound",
+      "gold": [
+        "bs.no-progress-update"
+      ],
+      "predicted": [
+        "bs.no-progress-update"
+      ],
+      "top1": "bs.no-progress-update",
+      "confidence": 0.5676,
+      "correct": true,
+      "located": true,
+      "backend": "offline",
+      "degraded": false
+    },
+    {
+      "submission": "lb_linear_scan",
+      "problem": "lower_bound",
+      "gold": [
+        "search.linear-scan-when-ordered",
+        "cx.asymptotic-gap"
+      ],
+      "predicted": [
+        "search.linear-scan-when-ordered",
+        "cx.asymptotic-gap"
+      ],
+      "top1": "search.linear-scan-when-ordered",
+      "confidence": 0.4094,
+      "correct": true,
+      "located": false,
+      "backend": "offline",
+      "degraded": false
+    },
+    {
+      "submission": "lb_float_mid",
+      "problem": "lower_bound",
+      "gold": [
+        "py.float-index"
+      ],
+      "predicted": [
+        "py.float-index",
+        "run.type-error"
+      ],
+      "top1": "py.float-index",
+      "confidence": 0.8736,
+      "correct": true,
+      "located": true,
+      "backend": "offline",
+      "degraded": false
+    },
+    {
+      "submission": "hc_mark_on_dequeue",
+      "problem": "hop_counts",
+      "gold": [
+        "graph.visited-on-dequeue"
+      ],
+      "predicted": [
+        "graph.visited-on-dequeue"
+      ],
+      "top1": "graph.visited-on-dequeue",
+      "confidence": 0.5676,
+      "correct": true,
+      "located": true,
+      "backend": "offline",
+      "degraded": false
+    },
+    {
+      "submission": "hc_list_queue",
+      "problem": "hop_counts",
+      "gold": [
+        "graph.list-as-queue",
+        "graph.list-as-visited"
+      ],
+      "predicted": [
+        "graph.list-as-queue",
+        "graph.list-as-visited",
+        "cx.membership-in-list",
+        "cx.asymptotic-gap"
+      ],
+      "top1": "graph.list-as-queue",
+      "confidence": 0.424,
+      "correct": true,
+      "located": false,
+      "backend": "offline",
+      "degraded": false
+    },
+    {
+      "submission": "hc_stack_instead_of_queue",
+      "problem": "hop_counts",
+      "gold": [
+        "ds.wrong-container-choice"
+      ],
+      "predicted": [
+        "ds.wrong-container-choice"
+      ],
+      "top1": "ds.wrong-container-choice",
+      "confidence": 0.2464,
+      "correct": true,
+      "located": false,
+      "backend": "offline",
+      "degraded": false
+    },
+    {
+      "submission": "hc_uninitialised",
+      "problem": "hop_counts",
+      "gold": [
+        "var.uninitialised"
+      ],
+      "predicted": [
+        "var.uninitialised",
+        "var.dead-store"
+      ],
+      "top1": "var.uninitialised",
+      "confidence": 0.8196,
+      "correct": true,
+      "located": true,
+      "backend": "offline",
+      "degraded": false
+    },
+    {
+      "submission": "mc_greedy",
+      "problem": "min_coins",
+      "gold": [
+        "greedy.local-optimum-assumed"
+      ],
+      "predicted": [
+        "greedy.local-optimum-assumed",
+        "cx.asymptotic-gap"
+      ],
+      "top1": "greedy.local-optimum-assumed",
+      "confidence": 0.279,
+      "correct": true,
+      "located": true,
+      "backend": "offline",
+      "degraded": false
+    },
+    {
+      "submission": "mc_transition_order",
+      "problem": "min_coins",
+      "gold": [
+        "dp.transition-order"
+      ],
+      "predicted": [
+        "dp.transition-order",
+        "logic.wrong-comparison-boundary"
+      ],
+      "top1": "dp.transition-order",
+      "confidence": 0.8476,
+      "correct": true,
+      "located": true,
+      "backend": "offline",
+      "degraded": false
+    },
+    {
+      "submission": "mc_table_off_by_one",
+      "problem": "min_coins",
+      "gold": [
+        "run.index-out-of-range"
+      ],
+      "predicted": [
+        "run.index-out-of-range"
+      ],
+      "top1": "run.index-out-of-range",
+      "confidence": 0.736,
+      "correct": true,
+      "located": true,
+      "backend": "offline",
+      "degraded": false
+    },
+    {
+      "submission": "mc_exponential",
+      "problem": "min_coins",
+      "gold": [
+        "dp.recomputed-subproblems"
+      ],
+      "predicted": [
+        "dp.recomputed-subproblems",
+        "cx.asymptotic-gap"
+      ],
+      "top1": "dp.recomputed-subproblems",
+      "confidence": 0.5409,
+      "correct": true,
+      "located": true,
+      "backend": "offline",
+      "degraded": false
+    },
+    {
+      "submission": "gp_no_base_case",
+      "problem": "grid_paths",
+      "gold": [
+        "rec.missing-base-case"
+      ],
+      "predicted": [
+        "rec.missing-base-case",
+        "dp.recomputed-subproblems",
+        "cx.asymptotic-gap"
+      ],
+      "top1": "rec.missing-base-case",
+      "confidence": 0.9264,
+      "correct": true,
+      "located": true,
+      "backend": "offline",
+      "degraded": false
+    },
+    {
+      "submission": "gp_naive_recursion",
+      "problem": "grid_paths",
+      "gold": [
+        "dp.recomputed-subproblems"
+      ],
+      "predicted": [
+        "dp.recomputed-subproblems",
+        "cx.asymptotic-gap"
+      ],
+      "top1": "dp.recomputed-subproblems",
+      "confidence": 0.5409,
+      "correct": true,
+      "located": true,
+      "backend": "offline",
+      "degraded": false
+    },
+    {
+      "submission": "gp_mutable_default",
+      "problem": "grid_paths",
+      "gold": [
+        "py.mutable-default-argument"
+      ],
+      "predicted": [
+        "py.mutable-default-argument"
+      ],
+      "top1": "py.mutable-default-argument",
+      "confidence": 0.2924,
+      "correct": true,
+      "located": false,
+      "backend": "offline",
+      "degraded": false
+    },
+    {
+      "submission": "gp_off_by_one",
+      "problem": "grid_paths",
+      "gold": [
+        "run.index-out-of-range"
+      ],
+      "predicted": [
+        "run.index-out-of-range"
+      ],
+      "top1": "run.index-out-of-range",
+      "confidence": 0.736,
+      "correct": true,
+      "located": true,
+      "backend": "offline",
+      "degraded": false
+    },
+    {
+      "submission": "ts_quadratic",
+      "problem": "two_sum_sorted",
+      "gold": [
+        "cx.asymptotic-gap"
+      ],
+      "predicted": [
+        "cx.asymptotic-gap"
+      ],
+      "top1": "cx.asymptotic-gap",
+      "confidence": 0.3801,
+      "correct": true,
+      "located": false,
+      "backend": "offline",
+      "degraded": false
+    },
+    {
+      "submission": "ts_membership_scan",
+      "problem": "two_sum_sorted",
+      "gold": [
+        "cx.membership-in-list",
+        "cx.asymptotic-gap"
+      ],
+      "predicted": [
+        "cx.membership-in-list",
+        "cx.asymptotic-gap"
+      ],
+      "top1": "cx.membership-in-list",
+      "confidence": 0.307,
+      "correct": true,
+      "located": false,
+      "backend": "offline",
+      "degraded": false
+    },
+    {
+      "submission": "ts_wrong_boundary",
+      "problem": "two_sum_sorted",
+      "gold": [
+        "logic.wrong-comparison-boundary"
+      ],
+      "predicted": [
+        "logic.wrong-comparison-boundary"
+      ],
+      "top1": "logic.wrong-comparison-boundary",
+      "confidence": 0.414,
+      "correct": true,
+      "located": true,
+      "backend": "offline",
+      "degraded": false
+    },
+    {
+      "submission": "mi_sort_by_start",
+      "problem": "max_intervals",
+      "gold": [
+        "greedy.local-optimum-assumed"
+      ],
+      "predicted": [
+        "greedy.local-optimum-assumed"
+      ],
+      "top1": "greedy.local-optimum-assumed",
+      "confidence": 0.279,
+      "correct": true,
+      "located": true,
+      "backend": "offline",
+      "degraded": false
+    },
+    {
+      "submission": "mi_sort_by_length",
+      "problem": "max_intervals",
+      "gold": [
+        "greedy.local-optimum-assumed"
+      ],
+      "predicted": [
+        "greedy.local-optimum-assumed",
+        "cx.asymptotic-gap"
+      ],
+      "top1": "greedy.local-optimum-assumed",
+      "confidence": 0.279,
+      "correct": true,
+      "located": true,
+      "backend": "offline",
+      "degraded": false
+    },
+    {
+      "submission": "mi_mutate_while_iterating",
+      "problem": "max_intervals",
+      "gold": [
+        "py.mutate-during-iteration"
+      ],
+      "predicted": [
+        "py.mutate-during-iteration",
+        "cx.asymptotic-gap"
+      ],
+      "top1": "py.mutate-during-iteration",
+      "confidence": 0.5676,
+      "correct": true,
+      "located": true,
+      "backend": "offline",
+      "degraded": false
+    }
+  ],
+  "bank": "dev",
+  "mode": "full",
+  "sources": [
+    "symbolic",
+    "dynamic",
+    "cost",
+    "model"
+  ],
+  "fusion_rule": "noisy-or"
+}
