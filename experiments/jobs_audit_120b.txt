@@ -1,0 +1,2 @@
+# The live gate audit with the primary model (runs after the held-out jobs).
+gate_audit_gpt-oss-120b.json gate audit --bank all --backend openai --base-url https://api.groq.com/openai/v1 --model openai/gpt-oss-120b

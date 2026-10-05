@@ -1,0 +1,2 @@
+# The live gate audit with the comparison model (re-run after the degraded-rung fix).
+gate_audit_gpt-oss-20b.json gate audit --bank all --backend openai --base-url https://api.groq.com/openai/v1 --model openai/gpt-oss-20b

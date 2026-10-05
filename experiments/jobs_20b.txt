@@ -1,0 +1,6 @@
+# The smaller model of the same family, on its own rate-limit budget.
+rq1_dev_full_gpt-oss-20b.json bench --bank dev --backend openai --base-url https://api.groq.com/openai/v1 --model openai/gpt-oss-20b --no-narrative
+rq1_heldout_full_gpt-oss-20b.json bench --bank heldout --backend openai --base-url https://api.groq.com/openai/v1 --model openai/gpt-oss-20b --no-narrative
+rq1_dev_modelonly_gpt-oss-20b.json bench --bank dev --model-only --backend openai --base-url https://api.groq.com/openai/v1 --model openai/gpt-oss-20b --no-narrative
+rq1_heldout_modelonly_gpt-oss-20b.json bench --bank heldout --model-only --backend openai --base-url https://api.groq.com/openai/v1 --model openai/gpt-oss-20b --no-narrative
+gate_audit_gpt-oss-20b.json gate audit --bank all --backend openai --base-url https://api.groq.com/openai/v1 --model openai/gpt-oss-20b
