@@ -1,0 +1,13 @@
+# normalise line endings so the tests and the shell launcher behave the same
+# on every checkout
+* text=auto eol=lf
+*.sh text eol=lf
+dmas text eol=lf
+
+*.png binary
+*.pdf binary
+
+# recorded model completions and result files: generated, large, collapsed in
+# code review (still diffable)
+experiments/live_cache/** linguist-generated=true
+experiments/results/** linguist-generated=true
