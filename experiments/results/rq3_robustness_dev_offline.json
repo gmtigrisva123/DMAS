@@ -1,0 +1,92 @@
+{
+  "overall": {
+    "n": 138.0,
+    "top1_stability": 0.942,
+    "mean_overlap": 0.965,
+    "verified_mutants": 138.0
+  },
+  "by_transform": {
+    "all-combined": {
+      "n": 23.0,
+      "top1_stability": 0.913,
+      "mean_overlap": 0.9565
+    },
+    "expand-augmented": {
+      "n": 23.0,
+      "top1_stability": 0.9565,
+      "mean_overlap": 0.971
+    },
+    "inject-noise": {
+      "n": 23.0,
+      "top1_stability": 0.9565,
+      "mean_overlap": 0.9565
+    },
+    "invert-conditionals": {
+      "n": 23.0,
+      "top1_stability": 0.913,
+      "mean_overlap": 0.971
+    },
+    "rename-identifiers": {
+      "n": 23.0,
+      "top1_stability": 0.9565,
+      "mean_overlap": 0.9565
+    },
+    "split-assignments": {
+      "n": 23.0,
+      "top1_stability": 0.9565,
+      "mean_overlap": 0.9783
+    }
+  },
+  "unverifiable_mutants_skipped": 0,
+  "regressions": [
+    {
+      "submission": "lb_closed_guard",
+      "transform": "invert-conditionals",
+      "original": "run.index-out-of-range",
+      "mutant": "bs.no-progress-update"
+    },
+    {
+      "submission": "lb_closed_guard",
+      "transform": "all-combined",
+      "original": "run.index-out-of-range",
+      "mutant": "bs.no-progress-update"
+    },
+    {
+      "submission": "mi_sort_by_length",
+      "transform": "rename-identifiers",
+      "original": "greedy.local-optimum-assumed",
+      "mutant": "cx.asymptotic-gap"
+    },
+    {
+      "submission": "mi_sort_by_length",
+      "transform": "split-assignments",
+      "original": "greedy.local-optimum-assumed",
+      "mutant": "cx.asymptotic-gap"
+    },
+    {
+      "submission": "mi_sort_by_length",
+      "transform": "invert-conditionals",
+      "original": "greedy.local-optimum-assumed",
+      "mutant": "logic.wrong-comparison-boundary"
+    },
+    {
+      "submission": "mi_sort_by_length",
+      "transform": "expand-augmented",
+      "original": "greedy.local-optimum-assumed",
+      "mutant": "logic.wrong-comparison-boundary"
+    },
+    {
+      "submission": "mi_sort_by_length",
+      "transform": "inject-noise",
+      "original": "greedy.local-optimum-assumed",
+      "mutant": "logic.wrong-comparison-boundary"
+    },
+    {
+      "submission": "mi_sort_by_length",
+      "transform": "all-combined",
+      "original": "greedy.local-optimum-assumed",
+      "mutant": "cx.asymptotic-gap"
+    }
+  ],
+  "bank": "dev"
+}
