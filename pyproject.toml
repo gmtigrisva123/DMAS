@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "deductive-mas"
+version = "1.1.0"
+description = "A deductive multi-agent system for automated cognitive misconception diagnosis and Socratic intervention in advanced computer science education."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "DMAS Research Team" }]
+keywords = [
+  "AIEd", "multi-agent-systems", "misconception-diagnosis",
+  "socratic-tutoring", "knowledge-graph", "program-analysis", "reasoning-models",
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Science/Research",
+  "Intended Audience :: Education",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3.9",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+# no dependencies on purpose, everything (stats, retrieval, linalg) is written
+# by hand. The live backends use urllib from the stdlib.
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0"]
+
+[project.scripts]
+dmas = "deductive_mas.cli.main:main"
+
+[project.urls]
+Documentation = "https://example.org/dmas/docs"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+filterwarnings = ["error"]
