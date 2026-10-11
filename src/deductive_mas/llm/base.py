@@ -8,13 +8,15 @@ rendering, validation and retry in one place.
 """
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, Mapping, Optional, Sequence, Tuple
+from typing import Any, Dict, Mapping, Optional, Sequence, Tuple, TypeVar as _TypeVar
+
+_RuntimeCheckableT = _TypeVar("_RuntimeCheckableT")
 
 try:
     from typing import Protocol, runtime_checkable
 except ImportError:
     Protocol = object
-    def runtime_checkable(cls):
+    def runtime_checkable(cls: _RuntimeCheckableT) -> _RuntimeCheckableT:
         return cls
 
 
