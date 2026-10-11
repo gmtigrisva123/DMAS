@@ -65,7 +65,7 @@ class MasteryState:
 class MasteryTracker:
     """Keeps a MasteryState over a KnowledgeGraph."""
 
-    def __init__(self, graph: KnowledgeGraph, config: Optional[KnowledgeConfig] = None):
+    def __init__(self, graph: KnowledgeGraph, config: Optional[KnowledgeConfig] = None) -> None:
         self.graph = graph
         self.config = config or KnowledgeConfig()
         self.defaults = BKTParameters(

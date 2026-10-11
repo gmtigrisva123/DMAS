@@ -14,7 +14,7 @@ it:
 
 from collections import deque
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Mapping, Optional, Sequence, Set, Tuple
+from typing import Dict, Iterable, List, Mapping, Optional, Sequence, Set, Tuple, Iterator
 
 from ..domain import Concept
 from ..errors import KnowledgeGraphError
@@ -23,7 +23,7 @@ from ..errors import KnowledgeGraphError
 class KnowledgeGraph:
     """Immutable prerequisite DAG over Concept objects."""
 
-    def __init__(self, concepts: Sequence[Concept]):
+    def __init__(self, concepts: Sequence[Concept]) -> None:
         self._concepts: Dict[str, Concept] = {}
         for concept in concepts:
             if concept.cid in self._concepts:
@@ -51,7 +51,7 @@ class KnowledgeGraph:
     def __contains__(self, cid: object) -> bool:
         return cid in self._concepts
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[Concept]:
         return iter(self._concepts.values())
 
     @property
