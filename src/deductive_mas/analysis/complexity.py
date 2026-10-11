@@ -174,7 +174,7 @@ class ComplexityReport:
 class ComplexityEstimator:
     """Cost inference for one module."""
 
-    def __init__(self, tree: ast.Module):
+    def __init__(self, tree: ast.Module) -> None:
         self.tree = tree
         self.functions: Dict[str, ast.FunctionDef] = {
             node.name: node
@@ -366,7 +366,7 @@ class ComplexityEstimator:
             return _CONTAINER_CONSTRUCTORS.get(_call_name(node) or "")
         return None
 
-    def _note(self, text: str):
+    def _note(self, text: str) -> None:
         current = getattr(self, "_current", None)
         if current is not None and text not in current.notes:
             current.notes.append(text)
