@@ -84,7 +84,7 @@ class StudentPopulation:
         tracker: MasteryTracker,
         *,
         model: Optional[ResponseModel] = None,
-    ):
+    ) -> None:
         self.graph = graph
         self.tracker = tracker
         self.model = model or ResponseModel()
