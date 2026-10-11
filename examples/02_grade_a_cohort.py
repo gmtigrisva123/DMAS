@@ -10,7 +10,7 @@ from deductive_mas import DeductiveOrchestrator, all_submissions, knowledge_grap
 from deductive_mas.knowledge.misconceptions import MISCONCEPTIONS
 
 
-def main():
+def main() -> None:
     orchestrator = DeductiveOrchestrator()
     graph = knowledge_graph()
 
