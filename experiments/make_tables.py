@@ -6,12 +6,15 @@
 import json
 import sys
 from pathlib import Path
+from typing import Iterable, Literal, Sequence
+from typing import Any, Mapping, Optional
 
 ROOT = Path(__file__).resolve().parent.parent
 RESULTS = ROOT / "experiments" / "results"
 OUT = ROOT.parent / "deductive_multi_agent_system_(MAS)_paper" / "tables.tex"
 sys.path.insert(0, str(ROOT / "src"))
 
+from deductive_mas.domain import ProblemSpec, Submission
 from deductive_mas.data.heldout import all_heldout_problems, all_heldout_submissions
 from deductive_mas.data.problems import all_problems
 from deductive_mas.data.submissions import all_submissions
@@ -24,7 +27,7 @@ def tex(s: str) -> str:
              .replace("_", "\\_").replace("#", "\\#").replace("{", "\\{").replace("}", "\\}"))
 
 
-def load(name):
+def load(name: str) -> Optional[dict[str, Any]]:
     path = RESULTS / name
     return json.loads(path.read_text()) if path.exists() else None
 
@@ -78,7 +81,7 @@ out.append(r"""    \bottomrule
 """)
 
 # banks
-def bank_table(problems, submissions, label, caption):
+def bank_table(problems: Iterable[ProblemSpec], submissions: Sequence[Submission], label: str, caption: str) -> None:
     out.append(f"""
 \\begin{{table}}[h]
   \\caption{{{caption}}}
@@ -120,7 +123,7 @@ if held:
             continue
         columns.append((header, {r["submission"]: r for r in data["rows"]}))
 
-    def mark(row):
+    def mark(row: Mapping[str, Any]) -> Literal["\\checkmark", "--", "$\\circ$", "$\\times$"]:
         """checkmark: headline is gold; circ: gold reported below the headline;
         dash: nothing reported; times: only wrong beliefs reported.
         """
