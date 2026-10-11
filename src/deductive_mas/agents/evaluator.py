@@ -101,7 +101,7 @@ class SocraticEvaluatorAgent(Agent):
         config: Optional[Config] = None,
         reasoner: Optional[Reasoner] = None,
         engine: Optional[AnalysisEngine] = None,
-    ):
+    ) -> None:
         self.config = config or Config()
         self.reasoner = reasoner or Reasoner(self.config.llm)
         self.engine = engine or AnalysisEngine(self.config)
@@ -463,7 +463,7 @@ class ModelOnlyEvaluator(Agent):
     name = "model-only-evaluator"
     role = "cognitive diagnosis (baseline)"
 
-    def __init__(self, config: Optional[Config] = None, reasoner: Optional[Reasoner] = None):
+    def __init__(self, config: Optional[Config] = None, reasoner: Optional[Reasoner] = None) -> None:
         self.config = config or Config()
         self.reasoner = reasoner or Reasoner(self.config.llm)
 
