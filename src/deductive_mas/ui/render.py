@@ -9,6 +9,7 @@ from typing import Dict, List, Optional, Sequence, Tuple
 from ..domain import (
     AlignmentReport,
     Diagnosis,
+    Hint,
     Intervention,
     Severity,
     TutoringResult,
@@ -572,7 +573,7 @@ def _metric(style: Style, value: float, *, shown: Optional[float] = None) -> str
 
 
 # interactive session
-def render_hint(style: Style, hint, *, index: int, total: int, graph: KnowledgeGraph) -> List[str]:
+def render_hint(style: Style, hint: Hint, *, index: int, total: int, graph: KnowledgeGraph) -> List[str]:
     """One rung of the ladder on its own.
     Rungs are shown one at a time on purpose, printing the whole ladder is
     just a slow worked answer.
