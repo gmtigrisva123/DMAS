@@ -8,6 +8,7 @@ import pytest
 
 from deductive_mas.agents.orchestrator import DeductiveOrchestrator
 from deductive_mas.config import Config, LLMConfig
+from deductive_mas.knowledge.graph import KnowledgeGraph
 from deductive_mas.knowledge.ontology import knowledge_graph
 from deductive_mas.ui.ansi import Style
 
@@ -23,7 +24,7 @@ def orchestrator(config: Config) -> DeductiveOrchestrator:
 
 
 @pytest.fixture(scope="session")
-def graph():
+def graph() -> KnowledgeGraph:
     return knowledge_graph()
 
 
