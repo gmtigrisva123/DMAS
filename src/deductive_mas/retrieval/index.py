@@ -50,7 +50,7 @@ class HybridIndex:
         self,
         documents: Optional[Sequence[KnowledgeCard]] = None,
         config: Optional[RetrievalConfig] = None,
-    ):
+    ) -> None:
         self.config = config or RetrievalConfig()
         self.cards: List[KnowledgeCard] = list(documents if documents is not None else cards())
         if not self.cards:
