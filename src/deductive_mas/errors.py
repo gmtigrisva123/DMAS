@@ -33,7 +33,7 @@ class RetrievalError(DMASError):
 class BackendError(DMASError):
     """The LLM backend failed or returned garbage."""
 
-    def __init__(self, message: str, *, status: int = 0):
+    def __init__(self, message: str, *, status: int = 0) -> None:
         super().__init__(message)
         # http status if there was one
         self.status = status

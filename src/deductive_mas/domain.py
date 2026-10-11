@@ -328,10 +328,10 @@ class Telemetry:
     warnings: List[str] = field(default_factory=list)
     backend: str = "offline"
 
-    def record(self, stage: str, seconds: float):
+    def record(self, stage: str, seconds: float) -> None:
         self.stages.append((stage, seconds))
 
-    def warn(self, message: str):
+    def warn(self, message: str) -> None:
         if message not in self.warnings:
             self.warnings.append(message)
 
