@@ -13,8 +13,8 @@ here.
 import ast
 import sys
 from dataclasses import dataclass, field
-from types import FrameType
-from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple
+from types import FrameType, ModuleType
+from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple, Protocol as _Protocol
 
 from ..config import ExecutionConfig
 from ..errors import ExecutionTimeout, UnsafeCodeError
@@ -82,7 +82,7 @@ class ExecutionResult:
 
 
 # static safety gate
-def assert_safe(tree: ast.AST, allowed_imports: Sequence[str]):
+def assert_safe(tree: ast.AST, allowed_imports: Sequence[str]) -> None:
     """Raise UnsafeCodeError if the tree uses something banned."""
     allowed = set(allowed_imports)
     for node in ast.walk(tree):
@@ -106,7 +106,7 @@ def assert_safe(tree: ast.AST, allowed_imports: Sequence[str]):
 class GuardedRunner:
     """Compiles and runs a submission with step / time / construct limits."""
 
-    def __init__(self, config: Optional[ExecutionConfig] = None):
+    def __init__(self, config: Optional[ExecutionConfig] = None) -> None:
         self.config = config or ExecutionConfig()
 
     # compiling
@@ -227,12 +227,17 @@ class _StepBudgetExceeded(Exception):
     """Internal signal raised from the trace hook."""
 
 
+class _TraceFunction(_Protocol):
+    def __call__(self, frame: FrameType, event: str, arg: Any, /) -> Optional["_TraceFunction"]:
+        ...
+
+
 class _Collector:
     """The sys.settrace hook, snapshots locals on every line."""
 
     __slots__ = ("config", "filename", "events", "steps", "truncated", "deadline", "record", "_check")
 
-    def __init__(self, config: ExecutionConfig, filename: str, *, record: bool = True):
+    def __init__(self, config: ExecutionConfig, filename: str, *, record: bool = True) -> None:
         self.config = config
         self.filename = filename
         self.record = record
@@ -242,13 +247,13 @@ class _Collector:
         self.deadline: Optional[Deadline] = None
         self._check = 0
 
-    def dispatch(self, frame: FrameType, event: str, arg: Any):
+    def dispatch(self, frame: FrameType, event: str, arg: Any) -> Optional[_TraceFunction]:
         # only trace the submission itself, library frames stay untraced
         if frame.f_code.co_filename != self.filename:
             return None
         return self.local(frame, event, arg)
 
-    def local(self, frame: FrameType, event: str, arg: Any):
+    def local(self, frame: FrameType, event: str, arg: Any) -> _TraceFunction:
         if event != "line":
             return self.local
         self.steps += 1
@@ -345,7 +350,7 @@ def _safe_builtins(allowed_imports: Sequence[str] = ()) -> Dict[str, Any]:
 
     permitted = frozenset(allowed_imports)
 
-    def guarded_import(name, globals=None, locals=None, fromlist=(), level=0):
+    def guarded_import(name: str, globals: Optional[Mapping[str, object]] = None, locals: Optional[Mapping[str, object]] = None, fromlist: Optional[Sequence[str]] = (), level: int = 0) -> ModuleType:
         root = name.split(".")[0]
         if root not in permitted:
             raise UnsafeCodeError(f"import of {name!r} is not permitted")

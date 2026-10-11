@@ -76,7 +76,7 @@ class ControlFlowGraph:
         order: List[int] = []
         seen: Set[int] = set()
 
-        def visit(bid: int):
+        def visit(bid: int) -> None:
             stack = [(bid, iter(self.blocks[bid].successors))]
             seen.add(bid)
             while stack:
@@ -167,7 +167,7 @@ class ControlFlowGraph:
 class _Builder:
     """Recursive descent CFG builder with a loop stack for break / continue."""
 
-    def __init__(self, name: str):
+    def __init__(self, name: str) -> None:
         self.cfg = ControlFlowGraph(name=name)
         self._next = 0
         self.entry = self._new("entry")
@@ -183,7 +183,7 @@ class _Builder:
         self.cfg.blocks[bid] = BasicBlock(bid=bid, label=label)
         return bid
 
-    def _edge(self, src: Optional[int], dst: int):
+    def _edge(self, src: Optional[int], dst: int) -> None:
         if src is None:
             return
         block = self.cfg.blocks[src]
@@ -191,7 +191,7 @@ class _Builder:
             block.successors.append(dst)
             self.cfg.blocks[dst].predecessors.append(src)
 
-    def _emit(self, bid: int, stmt: ast.AST):
+    def _emit(self, bid: int, stmt: ast.AST) -> None:
         self.cfg.blocks[bid].statements.append(stmt)
 
     # traversal
@@ -310,7 +310,7 @@ class _Condition(ast.AST):
 
     _fields = ("test",)
 
-    def __init__(self, test: Optional[ast.expr], lineno: int):
+    def __init__(self, test: Optional[ast.expr], lineno: int) -> None:
         self.test = test
         self.lineno = lineno
         self.end_lineno = lineno
@@ -321,7 +321,7 @@ class _Iteration(ast.AST):
 
     _fields = ("target", "iter")
 
-    def __init__(self, stmt: ast.stmt):
+    def __init__(self, stmt: ast.stmt) -> None:
         self.target = getattr(stmt, "target", None)
         self.iter = getattr(stmt, "iter", None)
         self.lineno = stmt.lineno
