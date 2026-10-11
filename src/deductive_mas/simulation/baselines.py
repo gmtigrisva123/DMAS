@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from typing import Optional, Sequence
 
 from ..agents.orchestrator import DeductiveOrchestrator
-from ..domain import ProblemSpec, Submission
+from ..domain import ProblemSpec, Submission, TutoringResult
 
 
 @dataclass
@@ -73,11 +73,11 @@ class _MemoisingTutor(Tutor):
     # analysis (hundreds of runs) diagnoses each submission once
     _shared_cache: dict = {}
 
-    def __init__(self, orchestrator: DeductiveOrchestrator):
+    def __init__(self, orchestrator: DeductiveOrchestrator) -> None:
         self.orchestrator = orchestrator
         self._cache = self._shared_cache.setdefault(id(orchestrator), {})
 
-    def _result(self, problem: ProblemSpec, submission: Submission):
+    def _result(self, problem: ProblemSpec, submission: Submission) -> TutoringResult:
         key = (problem.pid, submission.sid)
         if key not in self._cache:
             self._cache[key] = self.orchestrator.tutor(problem, submission)
