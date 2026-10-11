@@ -27,7 +27,7 @@ def bs(a, t):
 """
 
 
-def _function(source, name):
+def _function(source: str, name: str) -> ast.FunctionDef:
     return next(
         node for node in ast.walk(ast.parse(source))
         if isinstance(node, ast.FunctionDef) and node.name == name
@@ -35,89 +35,89 @@ def _function(source, name):
 
 
 class TestNormalisation:
-    def test_renaming_is_invisible(self):
+    def test_renaming_is_invisible(self) -> None:
         a = "def f(a, t):\n    lo = 0\n    return lo\n"
         b = "def g(arr, key):\n    left = 0\n    return left\n"
         assert structurally_equivalent(a, b)
 
-    def test_boundary_changes_are_visible(self):
+    def test_boundary_changes_are_visible(self) -> None:
         a = "def f(x, y):\n    return x < y\n"
         b = "def f(x, y):\n    return x <= y\n"
         assert not structurally_equivalent(a, b)
         assert not shape_equivalent(a, b)
 
-    def test_docstrings_are_ignored(self):
+    def test_docstrings_are_ignored(self) -> None:
         a = 'def f(x):\n    """Doc."""\n    return x\n'
         b = "def f(x):\n    return x\n"
         assert structurally_equivalent(a, b)
 
-    def test_unparsable_source_returns_none(self):
+    def test_unparsable_source_returns_none(self) -> None:
         assert normalise("def f(:\n") is None
 
-    def test_identifier_map_is_recorded(self):
+    def test_identifier_map_is_recorded(self) -> None:
         form = normalise("def f(alpha):\n    beta = alpha\n    return beta\n")
         assert set(form.identifier_map) == {"f", "alpha", "beta"}
 
 
 class TestControlFlow:
-    def test_loop_and_dead_code_are_found(self):
+    def test_loop_and_dead_code_are_found(self) -> None:
         source = BINARY_SEARCH + "    print('unreachable')\n"
         cfg = build_cfg(_function(source, "bs"))
         assert cfg.back_edges()
         assert cfg.natural_loops()
         assert cfg.unreachable_lines()
 
-    def test_cyclomatic_complexity_grows_with_branching(self):
+    def test_cyclomatic_complexity_grows_with_branching(self) -> None:
         simple = build_cfg(_function("def f(x):\n    return x\n", "f"))
         branchy = build_cfg(_function(BINARY_SEARCH, "bs"))
         assert branchy.cyclomatic_complexity > simple.cyclomatic_complexity
 
-    def test_reverse_post_order_starts_at_the_entry(self):
+    def test_reverse_post_order_starts_at_the_entry(self) -> None:
         cfg = build_cfg(_function(BINARY_SEARCH, "bs"))
         assert cfg.rpo()[0] == cfg.entry
 
-    def test_entry_dominates_everything(self):
+    def test_entry_dominates_everything(self) -> None:
         cfg = build_cfg(_function(BINARY_SEARCH, "bs"))
         dominators = cfg.dominators()
         assert all(cfg.entry in dom for dom in dominators.values())
 
-    def test_synchronisation_lines_include_the_loop_header(self):
+    def test_synchronisation_lines_include_the_loop_header(self) -> None:
         function = _function(BINARY_SEARCH, "bs")
         lines = synchronisation_lines(function, build_cfg(function))
         assert 4 in lines            # while lo <= hi:
 
-    def test_loop_kind_is_recorded(self):
+    def test_loop_kind_is_recorded(self) -> None:
         cfg = build_cfg(_function("def f(xs):\n    for x in xs:\n        pass\n", "f"))
         kinds = {b.loop_kind for b in cfg.blocks.values() if b.is_loop_header}
         assert kinds == {"for"}
 
 
 class TestDataflow:
-    def test_detects_use_before_definition(self):
+    def test_detects_use_before_definition(self) -> None:
         source = "def f(a):\n    return a + z\n"
         function = _function(source, "f")
         facts = solve_dataflow(build_cfg(function), ["a"])
         assert ("z", 2) in facts.uninitialised
 
-    def test_detects_a_dead_store(self):
+    def test_detects_a_dead_store(self) -> None:
         source = "def f(a):\n    junk = 42\n    return a\n"
         function = _function(source, "f")
         facts = solve_dataflow(build_cfg(function), ["a"])
         assert any(name == "junk" for name, _, _ in facts.dead_stores)
 
-    def test_flags_a_loop_that_cannot_progress(self):
+    def test_flags_a_loop_that_cannot_progress(self) -> None:
         source = "def f(n):\n    i = 0\n    while i < n:\n        pass\n    return i\n"
         function = _function(source, "f")
         facts = solve_dataflow(build_cfg(function), ["n"])
         assert facts.non_terminating_loops()
 
-    def test_accepts_a_loop_that_progresses(self):
+    def test_accepts_a_loop_that_progresses(self) -> None:
         source = "def f(n):\n    i = 0\n    while i < n:\n        i += 1\n    return i\n"
         function = _function(source, "f")
         facts = solve_dataflow(build_cfg(function), ["n"])
         assert not facts.non_terminating_loops()
 
-    def test_container_mutation_counts_as_progress(self):
+    def test_container_mutation_counts_as_progress(self) -> None:
         source = (
             "def f(xs):\n    q = list(xs)\n    out = 0\n"
             "    while q:\n        q.pop()\n        out += 1\n    return out\n"
@@ -126,13 +126,13 @@ class TestDataflow:
         facts = solve_dataflow(build_cfg(function), ["xs"])
         assert not facts.non_terminating_loops()
 
-    def test_lambda_parameters_are_not_free_variables(self):
+    def test_lambda_parameters_are_not_free_variables(self) -> None:
         source = "def f(xs):\n    return sorted(xs, key=lambda p: p[1])\n"
         function = _function(source, "f")
         facts = solve_dataflow(build_cfg(function), ["xs"])
         assert not any(name == "p" for name, _ in facts.uninitialised)
 
-    def test_loop_carried_variables_are_identified(self):
+    def test_loop_carried_variables_are_identified(self) -> None:
         function = _function(BINARY_SEARCH, "bs")
         facts = solve_dataflow(build_cfg(function), ["a", "t"])
         carried = set().union(*facts.loop_carried.values()) if facts.loop_carried else set()
@@ -152,10 +152,10 @@ class TestComplexity:
             ("def f(a):\n    b = sorted(a)\n    return b\n", "f", "O(n log n)"),
         ],
     )
-    def test_known_complexities(self, source, entry, expected):
+    def test_known_complexities(self, source: str, entry: str, expected: str) -> None:
         assert str(estimate(source, entry).total) == expected
 
-    def test_merge_sort_solves_by_the_master_theorem(self):
+    def test_merge_sort_solves_by_the_master_theorem(self) -> None:
         source = (
             "def ms(a):\n"
             "    if len(a) < 2: return a\n"
@@ -175,7 +175,7 @@ class TestComplexity:
         assert str(report.total) == "O(n log n)"
         assert report.recurrence and "T(n) = 2 T(n/2)" in report.recurrence
 
-    def test_graph_traversal_is_amortised(self):
+    def test_graph_traversal_is_amortised(self) -> None:
         fast = (
             "from collections import deque\n"
             "def bfs(g, s):\n    q = deque([s]); seen = set()\n"
@@ -194,7 +194,7 @@ class TestComplexity:
         assert str(estimate(fast, "bfs").total) == "O(n)"
         assert estimate(slow, "bfs").total.dominates(estimate(fast, "bfs").total)
 
-    def test_recursion_inside_a_loop_is_exponential(self):
+    def test_recursion_inside_a_loop_is_exponential(self) -> None:
         source = (
             "def f(coins, amount):\n"
             "    if amount == 0: return 0\n"
@@ -207,35 +207,35 @@ class TestComplexity:
         )
         assert estimate(source, "f").total.is_exponential
 
-    def test_asymptotic_ordering(self):
+    def test_asymptotic_ordering(self) -> None:
         assert Asymptotic.linear().dominates(Asymptotic.logarithmic())
         assert Asymptotic.linearithmic().dominates(Asymptotic.linear())
         assert Asymptotic.exponential().dominates(Asymptotic.polynomial(9))
         assert not Asymptotic.constant().dominates(Asymptotic.constant())
 
-    def test_syntax_error_is_reported_not_raised(self):
+    def test_syntax_error_is_reported_not_raised(self) -> None:
         report = estimate("def f(:\n", "f")
         assert report.notes and "syntax" in report.notes[0]
 
 
 class TestFeatures:
-    def test_container_kinds_are_inferred(self):
+    def test_container_kinds_are_inferred(self) -> None:
         features = extract("def f():\n    s = set()\n    d = {}\n    l = []\n    return s, d, l\n", "f")
         assert features.container_kinds == {"s": "set", "d": "dict", "l": "list"}
 
-    def test_mutable_default_is_detected(self):
+    def test_mutable_default_is_detected(self) -> None:
         features = extract("def f(x, memo={}):\n    return x\n", "f")
         assert features.mutable_defaults == (("memo", 1),)
 
-    def test_recursion_without_a_base_case(self):
+    def test_recursion_without_a_base_case(self) -> None:
         features = extract("def f(n):\n    return f(n - 1)\n", "f")
         assert features.is_recursive and not features.has_base_case
 
-    def test_two_self_calls_on_one_line_count_twice(self):
+    def test_two_self_calls_on_one_line_count_twice(self) -> None:
         features = extract("def f(n):\n    if n < 2: return n\n    return f(n-1) + f(n-2)\n", "f")
         assert features.self_call_count == 2
 
-    def test_loop_extent_excludes_nodes_without_a_line(self):
+    def test_loop_extent_excludes_nodes_without_a_line(self) -> None:
         features = extract(
             "def f(xs):\n    y = sorted(xs)\n    for x in y:\n        pass\n    return y\n", "f"
         )
@@ -243,10 +243,10 @@ class TestFeatures:
         assert loop.body_lines[0] >= 3          # the sort on line 2 is outside
         assert features.loop_containing(2) is None
 
-    def test_missing_entry_point_falls_back_to_the_first_function(self):
+    def test_missing_entry_point_falls_back_to_the_first_function(self) -> None:
         features = extract("def other(x):\n    return x\n", "expected")
         assert features.function is not None and features.function.name == "other"
 
-    def test_syntax_error_is_recorded(self):
+    def test_syntax_error_is_recorded(self) -> None:
         features = extract("def f(:\n", "f")
         assert not features.parsed and features.parse_error
