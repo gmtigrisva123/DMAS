@@ -1,15 +1,11 @@
-<div align="center">
+<p align="center">
+  <img src="images/DMAS_Logo.png" width="700" alt="AutoResearchClaw Logo">
+</p>
 
-# DMAS
+<h2 align="center"><b>Diagnosing the belief, not the bug</b></h2>
 
 **A deductive multi-agent system for automated cognitive misconception
 diagnosis and Socratic intervention in advanced computer science education**
-
-*Diagnosing the belief, not the bug.*
-
-`Python 3.9+` · zero dependencies · `MIT`
-
-</div>
 
 ---
 
