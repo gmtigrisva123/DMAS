@@ -40,7 +40,7 @@ class OpenAICompatibleBackend:
 
     name = "openai"
 
-    def __init__(self, config: Optional[LLMConfig] = None):
+    def __init__(self, config: Optional[LLMConfig] = None) -> None:
         self.config = config or LLMConfig()
         self._last_error: Optional[str] = None
 

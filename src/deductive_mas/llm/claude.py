@@ -48,7 +48,7 @@ class ClaudeBackend:
 
     name = "claude"
 
-    def __init__(self, config: Optional[LLMConfig] = None):
+    def __init__(self, config: Optional[LLMConfig] = None) -> None:
         self.config = config or LLMConfig()
         # the shared default base_url points at groq, which is not where the
         # Messages API lives; an explicit base_url is kept as is
