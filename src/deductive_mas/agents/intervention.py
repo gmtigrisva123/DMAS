@@ -11,7 +11,7 @@ code. Every constraint is enforced by a mechanism, not by asking nicely:
   construction.
 """
 
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Iterable
 
 from ..config import Config
 from ..domain import Challenge, Hint, HintKind, Intervention
@@ -24,10 +24,11 @@ from ..llm.base import Task
 from ..llm.offline import OfflineReasoner
 from ..llm.parsing import as_str_list
 from ..llm.registry import Reasoner
-from ..retrieval.ma_rag import MultiAgentRAG
+from ..retrieval.ma_rag import MultiAgentRAG, GroundedContext
+from ..analysis.leakage import LeakageContext
 from ..util.text import sentences
 from .base import Agent, Blackboard
-from .verifier import ComplianceVerifier
+from .verifier import ComplianceVerifier, ItemVerdict
 
 _HINT_SYSTEM = (
     "You are a Socratic tutor for algorithmic programming. You never provide, quote, paraphrase "
@@ -122,7 +123,7 @@ class CognitiveInterventionAgent(Agent):
         rag: Optional[MultiAgentRAG] = None,
         graph: Optional[KnowledgeGraph] = None,
         verifier: Optional[ComplianceVerifier] = None,
-    ):
+    ) -> None:
         self.config = config or Config()
         self.reasoner = reasoner or Reasoner(self.config.llm)
         self.rag = rag or MultiAgentRAG(config=self.config.retrieval)
@@ -196,7 +197,7 @@ class CognitiveInterventionAgent(Agent):
             )
         return best.item.concepts[0], best.probability
 
-    def _ground(self, board: Blackboard, target: Optional[str]):
+    def _ground(self, board: Blackboard, target: Optional[str]) -> GroundedContext:
         diagnosis = board.diagnosis
         alignment = board.alignment
         entries = [
@@ -268,7 +269,7 @@ class CognitiveInterventionAgent(Agent):
             ),
         }
 
-    def _hints(self, board: Blackboard, payload: Dict[str, Any], context) -> List[Hint]:
+    def _hints(self, board: Blackboard, payload: Dict[str, Any], context: GroundedContext) -> List[Hint]:
         leakage_context = self.verifier.context_for(
             board.problem.reference_solution, board.submission.source
         )
@@ -345,7 +346,7 @@ class CognitiveInterventionAgent(Agent):
         return accepted
 
     # gate
-    def _first_clean(self, candidates, leakage_context, context, *, fallback: str):
+    def _first_clean(self, candidates: Iterable[Optional[str]], leakage_context: LeakageContext, context: GroundedContext, *, fallback: str) -> Tuple[str, Optional[ItemVerdict]]:
         """First candidate that passes the gate, else a safe rung.
 
         The chain always ends: generated text -> template -> template with the bad
@@ -367,7 +368,7 @@ class CognitiveInterventionAgent(Agent):
                 return cleaned, rejection
         return fallback, rejection
 
-    def _sanitise(self, text: str, leakage_context, context) -> str:
+    def _sanitise(self, text: str, leakage_context: LeakageContext, context: GroundedContext) -> str:
         """Remove the sentences that fail, keep the rest."""
         parts = sentences(text)
         if len(parts) < 2:
@@ -397,7 +398,7 @@ class CognitiveInterventionAgent(Agent):
                 out.append({"kind": None, "text": item.strip()})
         return out
 
-    def _challenge(self, board: Blackboard, payload: Dict[str, Any], context) -> Optional[Challenge]:
+    def _challenge(self, board: Blackboard, payload: Dict[str, Any], context: GroundedContext) -> Optional[Challenge]:
         leakage_context = self.verifier.context_for(
             board.problem.reference_solution, board.submission.source
         )
