@@ -23,7 +23,7 @@ _PROTECTED = frozenset(
 class _AlphaRenamer(ast.NodeTransformer):
     """Rename user identifiers to v0, v1, ... in order of first appearance."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.mapping: Dict[str, str] = {}
 
     def _rename(self, name: str) -> str:
