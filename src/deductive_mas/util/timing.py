@@ -4,7 +4,10 @@ from typing import Callable, Iterator, Optional
 
 
 @contextmanager
-def stopwatch(sink: Optional[Callable[[str, float], None]] = None, label: str = "") -> Iterator[Callable[[], float]]:
+def stopwatch(
+    sink: Optional[Callable[[str, float], None]] = None,
+    label: str = ""
+) -> Iterator[Callable[[], float]]:
     """Time a block, report elapsed seconds to sink on exit."""
     start = time.perf_counter()
     finished = []
@@ -25,7 +28,7 @@ class Deadline:
 
     __slots__ = ("_end",)
 
-    def __init__(self, seconds: float):
+    def __init__(self, seconds: float) -> None:
         self._end = time.perf_counter() + max(0.0, seconds)
 
     @property
