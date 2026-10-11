@@ -139,7 +139,7 @@ class Experiment:
         *,
         orchestrator: Optional[DeductiveOrchestrator] = None,
         response_model: Optional[ResponseModel] = None,
-    ):
+    ) -> None:
         self.config = config or Config()
         self.graph = knowledge_graph()
         self.tracker = MasteryTracker(self.graph, self.config.knowledge)
@@ -218,7 +218,7 @@ class Experiment:
         return result
 
     # analysis
-    def _analyse(self, result: ExperimentResult, rng: random.Random):
+    def _analyse(self, result: ExperimentResult, rng: random.Random) -> None:
         control = result.arms.get(DirectAnswerTutor.arm)
         if control is None or control.n < 2:
             return
