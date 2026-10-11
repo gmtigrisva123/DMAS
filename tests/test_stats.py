@@ -61,16 +61,16 @@ class TestSpecialFunctions:
             (regularised_lower_gamma(3, 2), 0.3233236),
         ],
     )
-    def test_matches_published_values(self, computed, expected):
+    def test_matches_published_values(self, computed: float, expected: float) -> None:
         assert computed == pytest.approx(expected, abs=1e-6)
 
-    def test_t_distribution_is_symmetric(self):
+    def test_t_distribution_is_symmetric(self) -> None:
         assert t_cdf(-1.7, 12) == pytest.approx(1.0 - t_cdf(1.7, 12), abs=1e-12)
 
-    def test_t_approaches_the_normal_for_large_df(self):
+    def test_t_approaches_the_normal_for_large_df(self) -> None:
         assert t_cdf(1.96, 100000) == pytest.approx(normal_cdf(1.96), abs=1e-4)
 
-    def test_ppf_inverts_cdf(self):
+    def test_ppf_inverts_cdf(self) -> None:
         # the normal inverse gets a Halley step against an exact CDF so it is
         # machine precision. The t inverse bisects a continued fraction that is
         # itself only ~1e-8 accurate, so it cannot be held tighter.
@@ -78,7 +78,7 @@ class TestSpecialFunctions:
             assert normal_cdf(normal_ppf(p)) == pytest.approx(p, abs=1e-9)
             assert t_cdf(t_ppf(p, 8), 8) == pytest.approx(p, abs=1e-7)
 
-    def test_domain_errors_are_raised(self):
+    def test_domain_errors_are_raised(self) -> None:
         with pytest.raises(ValueError):
             normal_ppf(0.0)
         with pytest.raises(ValueError):
@@ -91,106 +91,106 @@ class TestHypothesisTests:
     A = [7, 8, 9, 6, 7, 8, 9, 10, 8, 7]
     B = [5, 6, 4, 5, 6, 5, 7, 4, 6, 5]
 
-    def test_moments(self):
+    def test_moments(self) -> None:
         assert mean([1, 2, 3]) == 2.0
         assert variance([1, 2, 3]) == pytest.approx(1.0)
         assert stdev([1, 2, 3]) == pytest.approx(1.0)
 
-    def test_a_real_difference_is_detected(self):
+    def test_a_real_difference_is_detected(self) -> None:
         assert welch_t_test(self.A, self.B).significant()
         assert mann_whitney_u(self.A, self.B).significant()
 
-    def test_no_difference_is_not_detected(self):
+    def test_no_difference_is_not_detected(self) -> None:
         rng = random.Random(4)
         x = [rng.gauss(0, 1) for _ in range(200)]
         y = [rng.gauss(0, 1) for _ in range(200)]
         assert not welch_t_test(x, y).significant()
 
-    def test_welch_and_student_agree_on_equal_variances(self):
+    def test_welch_and_student_agree_on_equal_variances(self) -> None:
         welch, student = welch_t_test(self.A, self.B), student_t_test(self.A, self.B)
         assert welch.statistic == pytest.approx(student.statistic, rel=1e-6)
 
-    def test_one_sided_alternatives(self):
+    def test_one_sided_alternatives(self) -> None:
         greater = welch_t_test(self.A, self.B, alternative="greater")
         less = welch_t_test(self.A, self.B, alternative="less")
         assert greater.p_value < 0.05 < less.p_value
 
-    def test_unknown_alternative_is_refused(self):
+    def test_unknown_alternative_is_refused(self) -> None:
         with pytest.raises(ValueError):
             welch_t_test(self.A, self.B, alternative="sideways")
 
-    def test_tiny_samples_are_refused(self):
+    def test_tiny_samples_are_refused(self) -> None:
         with pytest.raises(ValueError):
             welch_t_test([1.0], [2.0])
 
-    def test_paired_tests_need_equal_lengths(self):
+    def test_paired_tests_need_equal_lengths(self) -> None:
         with pytest.raises(ValueError):
             paired_t_test([1, 2, 3], [1, 2])
 
-    def test_paired_and_signed_rank_agree_in_direction(self):
+    def test_paired_and_signed_rank_agree_in_direction(self) -> None:
         assert paired_t_test(self.A, self.B).significant()
         assert wilcoxon_signed_rank(self.A, self.B).significant()
 
-    def test_ties_do_not_break_the_rank_tests(self):
+    def test_ties_do_not_break_the_rank_tests(self) -> None:
         assert 0.0 <= mann_whitney_u([1, 1, 1], [1, 1, 1]).p_value <= 1.0
         assert wilcoxon_signed_rank([1, 1], [1, 1]).p_value == 1.0
 
-    def test_chi_square_on_a_contingency_table(self):
+    def test_chi_square_on_a_contingency_table(self) -> None:
         result = chi_square_independence([[30, 10], [15, 25]])
         assert result.df == 1 and result.significant()
 
-    def test_chi_square_needs_a_real_table(self):
+    def test_chi_square_needs_a_real_table(self) -> None:
         with pytest.raises(ValueError):
             chi_square_independence([[1, 2]])
 
-    def test_apa_rendering(self):
+    def test_apa_rendering(self) -> None:
         assert "t(" in welch_t_test(self.A, self.B).apa()
         assert "p" in welch_t_test(self.A, self.B).apa()
 
 
 class TestEffectSizes:
-    def test_a_one_sd_shift_gives_d_near_one(self):
+    def test_a_one_sd_shift_gives_d_near_one(self) -> None:
         rng = random.Random(9)
         base = [rng.gauss(0, 1) for _ in range(400)]
         shifted = [v + 1.0 for v in base]
         assert cohens_d(shifted, base) == pytest.approx(1.0, abs=0.1)
 
-    def test_hedges_g_corrects_downward(self):
+    def test_hedges_g_corrects_downward(self) -> None:
         a, b = [5, 6, 7, 8], [1, 2, 3, 4]
         assert abs(hedges_g(a, b).value) < abs(cohens_d(a, b))
 
-    def test_identical_samples_have_no_effect(self):
+    def test_identical_samples_have_no_effect(self) -> None:
         assert cohens_d([1, 2, 3, 4], [1, 2, 3, 4]) == 0.0
 
-    def test_zero_variance_is_handled(self):
+    def test_zero_variance_is_handled(self) -> None:
         assert cohens_d([2, 2, 2], [2, 2, 2]) == 0.0
 
-    def test_cliffs_delta_is_bounded_and_signed(self):
+    def test_cliffs_delta_is_bounded_and_signed(self) -> None:
         assert cliffs_delta([5, 6, 7], [1, 2, 3]).value == pytest.approx(1.0)
         assert cliffs_delta([1, 2, 3], [5, 6, 7]).value == pytest.approx(-1.0)
         assert cliffs_delta([1, 2, 3], [1, 2, 3]).value == pytest.approx(0.0)
 
-    def test_interpretation_bands(self):
+    def test_interpretation_bands(self) -> None:
         assert interpret_d(0.1) == "negligible"
         assert interpret_d(0.3) == "small"
         assert interpret_d(0.6) == "medium"
         assert interpret_d(1.2) == "large"
 
-    def test_bca_interval_brackets_the_estimate(self):
+    def test_bca_interval_brackets_the_estimate(self) -> None:
         rng = random.Random(2)
         a = [rng.gauss(1, 1) for _ in range(60)]
         b = [rng.gauss(0, 1) for _ in range(60)]
         effect = effect_with_ci(a, b, resamples=600, rng=random.Random(1))
         assert effect.ci_low <= effect.value <= effect.ci_high
 
-    def test_bca_excludes_zero_for_a_large_effect(self):
+    def test_bca_excludes_zero_for_a_large_effect(self) -> None:
         rng = random.Random(6)
         a = [rng.gauss(2, 1) for _ in range(80)]
         b = [rng.gauss(0, 1) for _ in range(80)]
         effect = effect_with_ci(a, b, resamples=800, rng=random.Random(3))
         assert effect.ci_low > 0.0
 
-    def test_bootstrap_of_a_tiny_sample_degenerates_gracefully(self):
+    def test_bootstrap_of_a_tiny_sample_degenerates_gracefully(self) -> None:
         observed, low, high = bootstrap_ci([1.0], [2.0], lambda x, y: 0.0)
         assert observed == low == high
 
@@ -198,65 +198,65 @@ class TestEffectSizes:
 class TestMultipleComparisons:
     P_VALUES = [("a", 0.001), ("b", 0.013), ("c", 0.04), ("d", 0.31), ("e", 0.60)]
 
-    def test_holm_is_conservative_and_monotone(self):
+    def test_holm_is_conservative_and_monotone(self) -> None:
         results = holm_bonferroni(self.P_VALUES)
         adjusted = [r.adjusted for r in results]
         assert adjusted == sorted(adjusted)
         assert all(r.adjusted >= r.raw for r in results)
 
-    def test_holm_rejects_fewer_than_bh(self):
+    def test_holm_rejects_fewer_than_bh(self) -> None:
         holm = sum(1 for r in holm_bonferroni(self.P_VALUES) if r.rejected)
         bh = sum(1 for r in benjamini_hochberg(self.P_VALUES) if r.rejected)
         assert holm <= bh
 
-    def test_bh_adjusted_values_are_monotone(self):
+    def test_bh_adjusted_values_are_monotone(self) -> None:
         adjusted = [r.adjusted for r in benjamini_hochberg(self.P_VALUES)]
         assert adjusted == sorted(adjusted)
 
-    def test_empty_input_is_handled(self):
+    def test_empty_input_is_handled(self) -> None:
         assert benjamini_hochberg([]) == [] and holm_bonferroni([]) == []
 
 
 class TestPower:
-    def test_matches_the_standard_planning_table(self):
+    def test_matches_the_standard_planning_table(self) -> None:
         assert required_sample_size(0.5, 0.80) == 64
         assert required_sample_size(0.8, 0.80) == 26
         assert two_sample_power(0.5, 64) == pytest.approx(0.80, abs=0.01)
 
-    def test_power_increases_with_n_and_effect(self):
+    def test_power_increases_with_n_and_effect(self) -> None:
         assert two_sample_power(0.5, 100) > two_sample_power(0.5, 30)
         assert two_sample_power(0.9, 40) > two_sample_power(0.3, 40)
 
-    def test_minimum_detectable_effect_is_consistent(self):
+    def test_minimum_detectable_effect_is_consistent(self) -> None:
         mde = minimum_detectable_effect(60)
         assert two_sample_power(mde, 60) == pytest.approx(0.80, abs=0.02)
 
-    def test_a_zero_effect_is_unreachable(self):
+    def test_a_zero_effect_is_unreachable(self) -> None:
         assert required_sample_size(0.0) >= 100_000
 
-    def test_plan_reports_the_achieved_power(self):
+    def test_plan_reports_the_achieved_power(self) -> None:
         analysis = plan(0.6)
         assert analysis.power >= 0.80 and analysis.n_per_group > 0
 
 
 class TestAgreement:
-    def test_perfect_and_chance_agreement(self):
+    def test_perfect_and_chance_agreement(self) -> None:
         assert cohen_kappa(list("aabbcc"), list("aabbcc")) == 1.0
         assert cohen_kappa(list("aabbcc"), list("bbccaa")) < 0.0
 
-    def test_kappa_of_constant_raters(self):
+    def test_kappa_of_constant_raters(self) -> None:
         assert cohen_kappa(["a"] * 5, ["a"] * 5) == 1.0
         assert cohen_kappa(["a"] * 5, ["b"] * 5) == 0.0
 
-    def test_kappa_requires_aligned_annotations(self):
+    def test_kappa_requires_aligned_annotations(self) -> None:
         with pytest.raises(ValueError):
             cohen_kappa(["a"], ["a", "b"])
 
-    def test_krippendorff_alpha_ranges(self):
+    def test_krippendorff_alpha_ranges(self) -> None:
         assert krippendorff_alpha([["a", "a"], ["b", "b"], ["c", "c"]]) == pytest.approx(1.0)
         assert krippendorff_alpha([]) == 0.0
 
-    def test_multilabel_report_counts_correctly(self):
+    def test_multilabel_report_counts_correctly(self) -> None:
         report = multilabel_report(
             [["x"], ["y", "z"], []],
             [["x"], ["y"], ["w"]],
@@ -266,11 +266,11 @@ class TestAgreement:
         assert report.top1_accuracy == pytest.approx(2 / 3)
         assert 0.0 < report.micro_f1 <= 1.0
 
-    def test_perfect_predictions_score_one(self):
+    def test_perfect_predictions_score_one(self) -> None:
         gold = [["x"], ["y"]]
         report = multilabel_report(gold, gold, top_choice=["x", "y"])
         assert report.micro_f1 == 1.0 and report.exact_match == 1.0 and report.kappa == 1.0
 
-    def test_misaligned_input_is_refused(self):
+    def test_misaligned_input_is_refused(self) -> None:
         with pytest.raises(ValueError):
             multilabel_report([["x"]], [["x"], ["y"]])
