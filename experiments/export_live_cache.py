@@ -18,7 +18,7 @@ SOURCE = ROOT / ".dmas_cache"
 TARGET = ROOT / "experiments" / "live_cache"
 
 
-def main():
+def main() -> None:
     TARGET.mkdir(exist_ok=True)
     copied = 0
     for path in SOURCE.glob("*.json"):
