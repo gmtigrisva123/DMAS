@@ -40,7 +40,7 @@ class DeductiveOrchestrator:
         reasoner: Optional[Reasoner] = None,
         graph: Optional[KnowledgeGraph] = None,
         rag: Optional[MultiAgentRAG] = None,
-    ):
+    ) -> None:
         self.config = config or Config()
         self.graph = graph or knowledge_graph()
         self.reasoner = reasoner or Reasoner(self.config.llm)
@@ -59,7 +59,7 @@ class DeductiveOrchestrator:
     def stages(self) -> Sequence[Agent]:
         return (self.evaluator, self.alignment, self.intervention, self.verification)
 
-    # public api
+    # Public API
     def tutor(
         self,
         problem: ProblemSpec,
@@ -98,9 +98,10 @@ class DeductiveOrchestrator:
     def diagnose(
         self, problem: ProblemSpec, submission: Submission, *, evaluator: Optional[Agent] = None
     ) -> Diagnosis:
-        """Only the diagnosis stage (used by the RQ1 benchmark).
+        """
+        Only the diagnosis stage (used by the RQ1 benchmark).
 
-        evaluator can be another diagnostic agent (e.g. the model only baseline) so
+        Evaluator can be another diagnostic agent (e.g. the model only baseline) so
         the benchmark scores every variant the same way.
         """
         board = Blackboard(problem=problem, submission=submission)

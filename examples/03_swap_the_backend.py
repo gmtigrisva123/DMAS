@@ -10,9 +10,10 @@ import os
 
 from deductive_mas import Config, DeductiveOrchestrator, problem, submission
 from deductive_mas.config import LLMConfig
+from deductive_mas.domain import TutoringResult
 
 
-def run(backend: str):
+def run(backend: str) -> TutoringResult:
     config = dataclasses.replace(
         Config(), llm=LLMConfig(backend=backend, cache_dir=None)
     )
@@ -20,7 +21,7 @@ def run(backend: str):
     return DeductiveOrchestrator(config).tutor(problem(attempt.problem_id), attempt)
 
 
-def describe(label, result):
+def describe(label: str, result: TutoringResult) -> None:
     primary = result.diagnosis.primary
     print(f"\n=== {label} ({result.telemetry.backend}) " + "=" * 30)
     print("misconception :", primary.misconception_id if primary else "(none)")
@@ -33,7 +34,7 @@ def describe(label, result):
         print("  ! ", warning)
 
 
-def main():
+def main() -> None:
     describe("offline", run("offline"))
     if os.environ.get("ANTHROPIC_API_KEY"):
         describe("Claude", run("claude"))

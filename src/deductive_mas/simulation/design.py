@@ -20,7 +20,7 @@ simulation can legitimately show is done here:
 
 import random
 from dataclasses import dataclass, field, replace
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Callable
 
 from ..agents.orchestrator import DeductiveOrchestrator
 from ..config import Config
@@ -149,7 +149,7 @@ class DesignResult:
 class DesignAnalysis:
     """Runs the four analyses above on the RQ2 harness."""
 
-    def __init__(self, config: Optional[Config] = None):
+    def __init__(self, config: Optional[Config] = None) -> None:
         self.config = config or Config()
         self.orchestrator = DeductiveOrchestrator(self.config)
 
@@ -198,7 +198,7 @@ class DesignAnalysis:
         cohort_sizes: Sequence[int] = (60, 120, 180, 240),
         power_seeds: int = 20,
         base_seed: int = 20260909,
-        progress=None,
+        progress: Optional[Callable[[str], object]] = None,
     ) -> DesignResult:
         result = DesignResult()
         rng = random.Random(base_seed)

@@ -57,11 +57,11 @@ def _style(args: argparse.Namespace) -> Style:
     return style
 
 
-def _emit(lines: Sequence[str]):
+def _emit(lines: Sequence[str]) -> None:
     sys.stdout.write("\n".join(lines) + "\n")
 
 
-def _emit_json(payload: Any):
+def _emit_json(payload: Any) -> None:
     sys.stdout.write(json.dumps(payload, indent=2, default=str) + "\n")
 
 
@@ -464,7 +464,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     graph = knowledge_graph()
     checks: List[Sequence[str]] = []
 
-    def check(name: str, ok: bool, detail: str):
+    def check(name: str, ok: bool, detail: str) -> None:
         checks.append([style.success("ok") if ok else style.danger("FAIL"), name, detail])
 
     check("python", sys.version_info >= (3, 9), f"{sys.version_info.major}.{sys.version_info.minor}")

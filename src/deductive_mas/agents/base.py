@@ -36,7 +36,7 @@ class Blackboard:
     notes: List[str] = field(default_factory=list)
     extras: Dict[str, Any] = field(default_factory=dict)
 
-    def note(self, message: str):
+    def note(self, message: str) -> None:
         if message not in self.notes:
             self.notes.append(message)
 

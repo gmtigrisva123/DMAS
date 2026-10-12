@@ -247,7 +247,7 @@ def tree(
     """Labelled tree with box drawing connectors."""
     out = [indent + label(root)]
 
-    def walk(node: str, prefix: str, level: int):
+    def walk(node: str, prefix: str, level: int) -> None:
         if level >= depth:
             return
         kids = list(children(node))

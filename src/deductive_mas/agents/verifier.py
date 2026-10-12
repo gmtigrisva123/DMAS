@@ -56,7 +56,7 @@ class ComplianceVerifier:
         self,
         config: Optional[Config] = None,
         rag: Optional[MultiAgentRAG] = None,
-    ):
+    ) -> None:
         self.config = config or Config()
         self.rag = rag or MultiAgentRAG(config=self.config.retrieval)
         self.detector = LeakageDetector(
@@ -105,7 +105,7 @@ class VerificationAgent(Agent):
     name = "compliance-verifier"
     role = "policy enforcement"
 
-    def __init__(self, verifier: Optional[ComplianceVerifier] = None, config: Optional[Config] = None):
+    def __init__(self, verifier: Optional[ComplianceVerifier] = None, config: Optional[Config] = None) -> None:
         self.config = config or Config()
         self.verifier = verifier or ComplianceVerifier(self.config)
 

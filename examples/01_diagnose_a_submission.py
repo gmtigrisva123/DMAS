@@ -20,7 +20,7 @@ def lower_bound(a, t):
 """
 
 
-def main():
+def main() -> None:
     from deductive_mas.domain import Submission
 
     attempt = Submission(sid="demo", problem_id="lower_bound", source=SOURCE)

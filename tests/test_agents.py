@@ -1,4 +1,5 @@
 import dataclasses
+from typing import NoReturn
 
 import pytest
 
@@ -10,6 +11,7 @@ from deductive_mas.config import Config, LLMConfig
 from deductive_mas.data.problems import problem
 from deductive_mas.data.submissions import all_submissions, correct_submissions, labelled, submission
 from deductive_mas.domain import HintKind
+from deductive_mas.knowledge.graph import KnowledgeGraph
 from deductive_mas.llm.base import Completion, Task
 from deductive_mas.llm.registry import Reasoner
 
@@ -31,7 +33,7 @@ class _LeakingBackend:
 
     name = "leaking"
 
-    def available(self):
+    def available(self) -> bool:
         return True
 
     def run(self, task: Task) -> Completion:
@@ -83,17 +85,17 @@ class _HallucinatingBackend(_LeakingBackend):
 
 
 @pytest.fixture(scope="module")
-def evaluator(config):
+def evaluator(config: Config) -> SocraticEvaluatorAgent:
     return SocraticEvaluatorAgent(config)
 
 
-def _board(sid):
+def _board(sid: str) -> Blackboard:
     sub = submission(sid)
     return Blackboard(problem=problem(sub.problem_id), submission=sub)
 
 
 class TestSocraticEvaluator:
-    def test_recovers_every_gold_label(self, evaluator):
+    def test_recovers_every_gold_label(self, evaluator: SocraticEvaluatorAgent) -> None:
         misses = []
         for sub in labelled():
             board = evaluator(Blackboard(problem=problem(sub.problem_id), submission=sub))
@@ -102,7 +104,7 @@ class TestSocraticEvaluator:
                 misses.append(sub.sid)
         assert misses == []
 
-    def test_ranks_a_gold_label_first(self, evaluator):
+    def test_ranks_a_gold_label_first(self, evaluator: SocraticEvaluatorAgent) -> None:
         wrong = []
         for sub in labelled():
             board = evaluator(Blackboard(problem=problem(sub.problem_id), submission=sub))
@@ -111,7 +113,7 @@ class TestSocraticEvaluator:
                 wrong.append(sub.sid)
         assert wrong == []
 
-    def test_never_accuses_a_correct_submission(self, evaluator):
+    def test_never_accuses_a_correct_submission(self, evaluator: SocraticEvaluatorAgent) -> None:
         flagged = []
         for sub in correct_submissions():
             board = evaluator(Blackboard(problem=problem(sub.problem_id), submission=sub))
@@ -119,31 +121,31 @@ class TestSocraticEvaluator:
                 flagged.append((sub.sid, [h.misconception_id for h in board.diagnosis.hits]))
         assert flagged == []
 
-    def test_localises_the_divergence_for_a_wrong_answer(self, evaluator):
+    def test_localises_the_divergence_for_a_wrong_answer(self, evaluator: SocraticEvaluatorAgent) -> None:
         board = evaluator(_board("lb_inclusive_bound"))
         assert board.diagnosis.divergence is not None
         assert board.diagnosis.divergence.student_line
 
-    def test_attaches_a_minimal_counterexample(self, evaluator):
+    def test_attaches_a_minimal_counterexample(self, evaluator: SocraticEvaluatorAgent) -> None:
         board = evaluator(_board("lb_inclusive_bound"))
         counterexample = board.diagnosis.counterexample
         assert counterexample is not None and len(counterexample.args[0]) <= 2
 
-    def test_reports_a_complexity_gap(self, evaluator):
+    def test_reports_a_complexity_gap(self, evaluator: SocraticEvaluatorAgent) -> None:
         board = evaluator(_board("ts_quadratic"))
         assert board.diagnosis.complexity_gap
         assert board.diagnosis.student_complexity != board.diagnosis.reference_complexity
 
-    def test_evidence_carries_multiple_independent_kinds(self, evaluator):
+    def test_evidence_carries_multiple_independent_kinds(self, evaluator: SocraticEvaluatorAgent) -> None:
         board = evaluator(_board("lb_inclusive_bound"))
         assert len(board.diagnosis.primary.kinds) >= 2
 
-    def test_simultaneous_misconceptions_are_not_forced_to_compete(self, evaluator):
+    def test_simultaneous_misconceptions_are_not_forced_to_compete(self, evaluator: SocraticEvaluatorAgent) -> None:
         board = evaluator(_board("hc_list_queue"))
         found = {hit.misconception_id for hit in board.diagnosis.hits}
         assert {"graph.list-as-queue", "graph.list-as-visited"} <= found
 
-    def test_an_unparsable_submission_does_not_crash(self, evaluator, config):
+    def test_an_unparsable_submission_does_not_crash(self, evaluator: SocraticEvaluatorAgent, config: Config) -> None:
         from deductive_mas.domain import Submission
 
         board = Blackboard(
@@ -153,7 +155,7 @@ class TestSocraticEvaluator:
         evaluator(board)
         assert board.diagnosis is not None and board.notes
 
-    def test_a_hallucinated_misconception_is_discarded(self, config):
+    def test_a_hallucinated_misconception_is_discarded(self, config: Config) -> None:
         agent = SocraticEvaluatorAgent(
             config, Reasoner(config.llm, backend=_HallucinatingBackend())
         )
@@ -163,7 +165,7 @@ class TestSocraticEvaluator:
         )
         assert any("unknown misconception" in w for w in board.telemetry.warnings)
 
-    def test_diagnosis_is_deterministic(self, evaluator):
+    def test_diagnosis_is_deterministic(self, evaluator: SocraticEvaluatorAgent) -> None:
         first = evaluator(_board("mc_transition_order")).diagnosis
         second = evaluator(_board("mc_transition_order")).diagnosis
         assert [h.misconception_id for h in first.hits] == [h.misconception_id for h in second.hits]
@@ -171,20 +173,20 @@ class TestSocraticEvaluator:
 
 
 class TestKnowledgeGraphAlignment:
-    def test_locates_a_root_cause_inside_the_graph(self, orchestrator, graph):
+    def test_locates_a_root_cause_inside_the_graph(self, orchestrator: DeductiveOrchestrator, graph: KnowledgeGraph) -> None:
         result = orchestrator.tutor(problem("lower_bound"), submission("lb_inclusive_bound"))
         assert result.alignment.root_cause in graph
 
-    def test_blame_is_a_distribution_over_implicated_concepts(self, orchestrator):
+    def test_blame_is_a_distribution_over_implicated_concepts(self, orchestrator: DeductiveOrchestrator) -> None:
         result = orchestrator.tutor(problem("lower_bound"), submission("lb_inclusive_bound"))
         assert sum(result.alignment.blame.values()) == pytest.approx(1.0)
 
-    def test_the_diagnosed_concept_carries_the_most_blame(self, orchestrator):
+    def test_the_diagnosed_concept_carries_the_most_blame(self, orchestrator: DeductiveOrchestrator) -> None:
         result = orchestrator.tutor(problem("lower_bound"), submission("lb_inclusive_bound"))
         top = result.alignment.top_blame(1)[0][0]
         assert top in ("half-open-intervals", "boundary-conditions", "binary-search")
 
-    def test_mastery_falls_on_the_implicated_concepts(self, orchestrator):
+    def test_mastery_falls_on_the_implicated_concepts(self, orchestrator: DeductiveOrchestrator) -> None:
         result = orchestrator.tutor(problem("lower_bound"), submission("lb_inclusive_bound"))
         dropped = [
             cid for cid, after in result.alignment.mastery_after.items()
@@ -192,7 +194,7 @@ class TestKnowledgeGraphAlignment:
         ]
         assert dropped
 
-    def test_the_root_cause_is_not_the_curriculum_floor(self, orchestrator, graph):
+    def test_the_root_cause_is_not_the_curriculum_floor(self, orchestrator: DeductiveOrchestrator, graph: KnowledgeGraph) -> None:
         # someone who wrote a working loop knows what a variable is. If the
         # diagnosis lands on var-binding for an interval error the blame cascade
         # ran away.
@@ -205,35 +207,35 @@ class TestKnowledgeGraphAlignment:
                 offenders.append((sid, result.alignment.root_cause))
         assert offenders == []
 
-    def test_a_learning_path_is_offered(self, orchestrator):
+    def test_a_learning_path_is_offered(self, orchestrator: DeductiveOrchestrator) -> None:
         result = orchestrator.tutor(problem("lower_bound"), submission("lb_inclusive_bound"))
         assert result.alignment.prerequisite_paths
         assert all(len(path) > 1 for path in result.alignment.prerequisite_paths)
 
 
 class TestCognitiveIntervention:
-    def test_produces_a_full_socratic_ladder(self, orchestrator):
+    def test_produces_a_full_socratic_ladder(self, orchestrator: DeductiveOrchestrator) -> None:
         result = orchestrator.tutor(problem("lower_bound"), submission("lb_inclusive_bound"))
         hints = result.intervention.hints
         assert len(hints) == 3
         assert [h.level for h in hints] == [1, 2, 3]
         assert hints[0].kind is HintKind.ORIENTING
 
-    def test_guidance_cites_the_concrete_counterexample(self, orchestrator):
+    def test_guidance_cites_the_concrete_counterexample(self, orchestrator: DeductiveOrchestrator) -> None:
         result = orchestrator.tutor(problem("lower_bound"), submission("lb_inclusive_bound"))
         joined = " ".join(h.text for h in result.intervention.hints)
         assert repr(result.diagnosis.counterexample.args) in joined
 
-    def test_a_counter_factual_challenge_is_offered(self, orchestrator):
+    def test_a_counter_factual_challenge_is_offered(self, orchestrator: DeductiveOrchestrator) -> None:
         result = orchestrator.tutor(problem("lower_bound"), submission("lb_inclusive_bound"))
         assert result.intervention.challenge is not None
         assert result.intervention.challenge.prompt
 
-    def test_guidance_is_grounded_in_cited_evidence(self, orchestrator):
+    def test_guidance_is_grounded_in_cited_evidence(self, orchestrator: DeductiveOrchestrator) -> None:
         result = orchestrator.tutor(problem("lower_bound"), submission("lb_inclusive_bound"))
         assert result.intervention.citations
 
-    def test_the_target_lies_in_or_near_the_zpd(self, orchestrator):
+    def test_the_target_lies_in_or_near_the_zpd(self, orchestrator: DeductiveOrchestrator) -> None:
         outside = []
         for sub in labelled():
             result = orchestrator.tutor(problem(sub.problem_id), sub)
@@ -246,7 +248,7 @@ class TestCognitiveIntervention:
 class TestComplianceGate:
     """Nothing reaches the student without passing the gate."""
 
-    def test_no_guidance_in_the_whole_bank_leaks(self, orchestrator, config):
+    def test_no_guidance_in_the_whole_bank_leaks(self, orchestrator: DeductiveOrchestrator, config: Config) -> None:
         offenders = []
         for sub in all_submissions():
             result = orchestrator.tutor(problem(sub.problem_id), sub)
@@ -254,7 +256,7 @@ class TestComplianceGate:
                 offenders.append((sub.sid, result.intervention.leakage))
         assert offenders == []
 
-    def test_a_leaking_backend_is_overridden_not_trusted(self, config):
+    def test_a_leaking_backend_is_overridden_not_trusted(self, config: Config) -> None:
         reasoner = Reasoner(config.llm, backend=_LeakingBackend())
         orchestrator = DeductiveOrchestrator(config, reasoner=reasoner)
         result = orchestrator.tutor(problem("lower_bound"), submission("lb_inclusive_bound"))
@@ -266,7 +268,7 @@ class TestComplianceGate:
         assert "```" not in joined
         assert any("replaced" in w for w in result.telemetry.warnings)
 
-    def test_a_leaking_challenge_is_replaced(self, config):
+    def test_a_leaking_challenge_is_replaced(self, config: Config) -> None:
         reasoner = Reasoner(config.llm, backend=_LeakingBackend())
         orchestrator = DeductiveOrchestrator(config, reasoner=reasoner)
         result = orchestrator.tutor(problem("lower_bound"), submission("lb_inclusive_bound"))
@@ -275,7 +277,7 @@ class TestComplianceGate:
         # quoting it leaks nothing, so it is the fix that must not show up.
         assert "len(a)" not in result.intervention.challenge.prompt
 
-    def test_a_hallucinating_backend_is_overridden(self, config):
+    def test_a_hallucinating_backend_is_overridden(self, config: Config) -> None:
         reasoner = Reasoner(config.llm, backend=_HallucinatingBackend())
         orchestrator = DeductiveOrchestrator(config, reasoner=reasoner)
         result = orchestrator.tutor(problem("lower_bound"), submission("lb_inclusive_bound"))
@@ -283,7 +285,7 @@ class TestComplianceGate:
         assert "Fibonacci heap" not in joined
         assert result.intervention.hints
 
-    def test_the_gate_still_yields_usable_guidance(self, config):
+    def test_the_gate_still_yields_usable_guidance(self, config: Config) -> None:
         reasoner = Reasoner(config.llm, backend=_LeakingBackend())
         orchestrator = DeductiveOrchestrator(config, reasoner=reasoner)
         result = orchestrator.tutor(problem("lower_bound"), submission("lb_inclusive_bound"))
@@ -292,25 +294,25 @@ class TestComplianceGate:
 
 
 class TestOrchestrator:
-    def test_a_full_session_is_serialisable(self, orchestrator):
+    def test_a_full_session_is_serialisable(self, orchestrator: DeductiveOrchestrator) -> None:
         result = orchestrator.tutor(problem("lower_bound"), submission("lb_inclusive_bound"))
         payload = result.to_dict()
         assert payload["diagnosis"]["primary"] == "bs.interval-convention-mismatch"
         assert payload["intervention"]["hints"]
         assert payload["telemetry"]["backend"]
 
-    def test_telemetry_records_every_stage(self, orchestrator):
+    def test_telemetry_records_every_stage(self, orchestrator: DeductiveOrchestrator) -> None:
         result = orchestrator.tutor(problem("lower_bound"), submission("lb_inclusive_bound"))
         stages = {name for name, _ in result.telemetry.stages}
         assert {"socratic-evaluator", "kg-alignment", "cognitive-intervention"} <= stages
 
-    def test_a_failing_stage_does_not_abort_the_session(self, config):
+    def test_a_failing_stage_does_not_abort_the_session(self, config: Config) -> None:
         orchestrator = DeductiveOrchestrator(config)
 
         class _Exploding:
             name = "kg-alignment"
 
-            def __call__(self, board):
+            def __call__(self, board: Blackboard) -> NoReturn:
                 raise RuntimeError("stage failure")
 
         orchestrator.alignment = _Exploding()
@@ -318,16 +320,16 @@ class TestOrchestrator:
         assert result.diagnosis.primary is not None
         assert any("kg-alignment failed" in w for w in result.telemetry.warnings)
 
-    def test_diagnose_only_shortcut(self, orchestrator):
+    def test_diagnose_only_shortcut(self, orchestrator: DeductiveOrchestrator) -> None:
         diagnosis = orchestrator.diagnose(problem("lower_bound"), submission("lb_no_progress"))
         assert diagnosis.primary.misconception_id == "bs.no-progress-update"
 
-    def test_a_correct_submission_is_reported_as_such(self, orchestrator):
+    def test_a_correct_submission_is_reported_as_such(self, orchestrator: DeductiveOrchestrator) -> None:
         result = orchestrator.tutor(problem("lower_bound"), submission("lb_correct"))
         assert result.diagnosis.hits == ()
         assert result.diagnosis.inconclusive
 
-    def test_sessions_are_reproducible(self, config):
+    def test_sessions_are_reproducible(self, config: Config) -> None:
         first = DeductiveOrchestrator(config).tutor(
             problem("hop_counts"), submission("hc_mark_on_dequeue")
         )
@@ -337,7 +339,7 @@ class TestOrchestrator:
         assert first.to_dict()["diagnosis"] == second.to_dict()["diagnosis"]
         assert first.to_dict()["intervention"] == second.to_dict()["intervention"]
 
-    def test_prior_mastery_is_honoured(self, config, graph):
+    def test_prior_mastery_is_honoured(self, config: Config, graph: KnowledgeGraph) -> None:
         orchestrator = DeductiveOrchestrator(config)
         state = orchestrator.tracker.initial(ability=2.5)
         result = orchestrator.tutor(

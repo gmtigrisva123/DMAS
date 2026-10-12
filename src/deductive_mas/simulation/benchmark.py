@@ -129,7 +129,7 @@ class DiagnosticBenchmark:
         orchestrator: Optional[DeductiveOrchestrator] = None,
         *,
         evaluator: Optional[Agent] = None,
-    ):
+    ) -> None:
         self.config = config or Config()
         self.orchestrator = orchestrator or DeductiveOrchestrator(self.config)
         # an alternative diagnostic agent (e.g. the model only baseline)

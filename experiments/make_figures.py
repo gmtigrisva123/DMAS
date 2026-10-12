@@ -10,12 +10,15 @@ skipped with a note so it can be rerun as results come in.
 import json
 import sys
 from pathlib import Path
+from typing import Literal, Optional
+from typing import Any
 
 import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib import patches
+from matplotlib.figure import Figure
 
 ROOT = Path(__file__).resolve().parent
 RESULTS = ROOT / "results"
@@ -59,7 +62,7 @@ plt.rcParams.update({
 TEXT_WIDTH = 5.5
 
 
-def load(name: str):
+def load(name: str) -> Optional[dict[str, Any]]:
     path = RESULTS / name
     if not path.exists():
         print(f"  (missing {name})")
@@ -71,7 +74,7 @@ def load(name: str):
 PAPER_FIGURES = ROOT.parent.parent / "deductive_multi_agent_system_(MAS)_paper" / "figures"
 
 
-def save(fig, name: str):
+def save(fig: Figure, name: str) -> None:
     fig.savefig(FIGURES / f"{name}.pdf")
     fig.savefig(FIGURES / f"{name}.png", dpi=220)
     if PAPER_FIGURES.parent.exists():
@@ -81,7 +84,7 @@ def save(fig, name: str):
     print(f"  wrote {name}.pdf")
 
 
-def light_grid(ax, axis="y"):
+def light_grid(ax: plt.Axes, axis: Literal["both", "x", "y"] = "y") -> None:
     ax.grid(True, axis=axis, color=GRID, linewidth=0.5, zorder=0)
     ax.set_axisbelow(True)
 
@@ -118,7 +121,7 @@ ARCH_LABELS = {"in_above": "student", "in_below": "program", "belief": "belief",
 
 
 # 1. architecture
-def fig_architecture():
+def fig_architecture() -> None:
     """Pipeline overview. Boxes are sized from measured text extents (data units
     are inches, axes fill the figure) so nothing overflows.
     """
@@ -128,13 +131,13 @@ def fig_architecture():
     ax.axis("off")
     renderer = fig.canvas.get_renderer()
 
-    def width_of(text, size, weight="normal", style="normal"):
+    def width_of(text: str, size: float, weight: str = "normal", style: str = "normal") -> float:
         probe = ax.text(0, 0, text, fontsize=size, fontweight=weight, style=style)
         extent = probe.get_window_extent(renderer=renderer)
         probe.remove()
         return extent.width / fig.dpi * 1.04      # 4% slack for pdf font metrics
 
-    def wrap(text, size, max_width):
+    def wrap(text: str, size: float, max_width: float) -> list[str]:
         lines, current = [], ""
         for word in text.split():
             candidate = f"{current} {word}".strip()
@@ -174,11 +177,11 @@ def fig_architecture():
     y_top = H - 0.04
     y_mid = y_top - panel_h / 2
 
-    def rounded(x, y, w, h, fc, ec):
+    def rounded(x: float, y: float, w: float, h: float, fc: str, ec: str) -> None:
         ax.add_patch(patches.FancyBboxPatch((x, y), w, h, boxstyle="round,pad=0,rounding_size=0.05",
                                             fc=fc, ec=ec, lw=0.8, zorder=2))
 
-    def arrow(x0, x1, above=None, below=None, weight="normal", color=MUTED):
+    def arrow(x0: float, x1: float, above: Optional[str] = None, below: Optional[str] = None, weight: str = "normal", color: str = MUTED) -> None:
         ax.annotate("", xy=(x1, y_mid), xytext=(x0, y_mid),
                     arrowprops=dict(arrowstyle="-|>", color=MUTED, lw=0.8, shrinkA=0, shrinkB=0,
                                     mutation_scale=6), zorder=4)
@@ -233,7 +236,7 @@ def fig_architecture():
 
 
 # 2. RQ1, diagnostic accuracy across banks and systems
-def fig_rq1():
+def fig_rq1() -> None:
     systems = [
         ("deterministic", "rq1_{bank}_full_offline.json", BLUE),
         ("+ reasoning model", "rq1_{bank}_full_gpt-oss-120b.json", VIOLET),
@@ -275,7 +278,7 @@ def fig_rq1():
     save(fig, "fig_rq1")
 
 
-def fig_rq1_labels():
+def fig_rq1_labels() -> None:
     """Per misconception recall on the held-out bank, one dot per system."""
     systems = [
         ("deterministic", "rq1_heldout_full_offline.json", BLUE, "o"),
@@ -314,7 +317,7 @@ def fig_rq1_labels():
 
 
 # 3. external validation on Refactory
-def fig_external():
+def fig_external() -> None:
     """Two panels with unequal text load, the right one has long monospace
     belief names, so the layout is constrained (tick labels measured, panels
     cannot collide) and the legend goes under both.
@@ -376,7 +379,7 @@ def fig_external():
 
 
 # 4. the gate
-def fig_gate():
+def fig_gate() -> None:
     adv = load("gate_adversarial_offline.json")
     audits = [("deterministic generator", "gate_audit_offline.json"),
               ("gpt-oss-120b", "gate_audit_gpt-oss-120b.json"),
@@ -452,7 +455,7 @@ def fig_gate():
 
 
 # 5. RQ2 design analysis
-def fig_design():
+def fig_design() -> None:
     d = load("rq2_design_offline.json")
     if d is None or not d.get("replication"):
         return
@@ -525,7 +528,7 @@ def fig_design():
 
 
 # 6. RQ3 robustness
-def fig_robustness():
+def fig_robustness() -> None:
     dev = load("rq3_robustness_dev_offline.json")
     held = load("rq3_robustness_heldout_offline.json")
     if dev is None:
@@ -556,7 +559,7 @@ def fig_robustness():
 
 
 # 7. worked example: aligned trajectories and the divergence point
-def fig_trace():
+def fig_trace() -> None:
     """Both executions on one input, sampled at the loop checkpoints."""
     try:
         from deductive_mas import Config
@@ -611,7 +614,7 @@ def fig_trace():
 
 
 # 8. knowledge graph with blame from one diagnosis
-def fig_kg():
+def fig_kg() -> None:
     """Blamed subgraph after one diagnosis, with frontier and target."""
     try:
         from deductive_mas import DeductiveOrchestrator, problem, submission

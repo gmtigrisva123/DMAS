@@ -18,57 +18,57 @@ from deductive_mas.util.text import (
 
 
 class TestText:
-    def test_identifiers_are_split_on_case_and_underscore(self):
+    def test_identifiers_are_split_on_case_and_underscore(self) -> None:
         assert prose_tokens("lowerBound_idx") == ["lower", "bound", "idx"]
 
-    def test_stemming_is_conservative(self):
+    def test_stemming_is_conservative(self) -> None:
         assert prose_tokens("boundaries recursions") == ["boundary", "recursion"]
 
-    def test_spelling_variants_normalise(self):
+    def test_spelling_variants_normalise(self) -> None:
         assert prose_tokens("memoization") == prose_tokens("memoisation")
         assert prose_tokens("analyze") == prose_tokens("analyse")
 
-    def test_code_tokens_can_erase_identifiers(self):
+    def test_code_tokens_can_erase_identifiers(self) -> None:
         tokens = code_tokens("def f(lo, hi):\n    return (lo + hi) // 2\n", normalise_identifiers=True)
         assert "ID" in tokens and "lo" not in tokens
         assert "NUM" in tokens
 
-    def test_code_tokens_survive_a_syntax_error(self):
+    def test_code_tokens_survive_a_syntax_error(self) -> None:
         assert code_tokens("def f(:\n  x = 1\n")
 
-    def test_levenshtein_bounds(self):
+    def test_levenshtein_bounds(self) -> None:
         assert normalised_levenshtein("abc", "abc") == 0.0
         assert normalised_levenshtein("abc", "") == 1.0
         assert 0.0 < normalised_levenshtein("kitten", "sitting") < 1.0
 
-    def test_jaccard_and_containment(self):
+    def test_jaccard_and_containment(self) -> None:
         assert jaccard("ab", "ab") == 1.0
         assert jaccard([], []) == 0.0
         assert containment("ab", "abc") == 1.0
         assert containment("abc", "ab") == pytest.approx(2 / 3)
 
-    def test_wrap_never_exceeds_width(self):
+    def test_wrap_never_exceeds_width(self) -> None:
         lines = wrap("one two three four five six seven eight", 12, "  ")
         assert all(len(line) <= 12 for line in lines)
 
-    def test_sentences_split_on_terminators(self):
+    def test_sentences_split_on_terminators(self) -> None:
         assert len(sentences("First one. Second one! Third?")) == 3
 
 
 class TestDeterminism:
-    def test_hash_is_stable_across_calls(self):
+    def test_hash_is_stable_across_calls(self) -> None:
         assert stable_hash("a", 1) == stable_hash("a", 1)
         assert stable_hash("a", 1) != stable_hash("a", 2)
 
-    def test_unit_interval(self):
+    def test_unit_interval(self) -> None:
         assert all(0.0 <= stable_unit(i) < 1.0 for i in range(200))
 
-    def test_seeded_rng_reproduces(self):
+    def test_seeded_rng_reproduces(self) -> None:
         assert seeded_rng("x").random() == seeded_rng("x").random()
 
 
 class TestLinearAlgebra:
-    def test_jacobi_svd_reconstructs(self):
+    def test_jacobi_svd_reconstructs(self) -> None:
         rng = random.Random(7)
         a = [[rng.gauss(0, 1) for _ in range(5)] for _ in range(9)]
         u, s, v = la.jacobi_svd(a)
@@ -78,18 +78,18 @@ class TestLinearAlgebra:
             for j in range(5):
                 assert rebuilt[i][j] == pytest.approx(a[i][j], abs=1e-10)
 
-    def test_singular_values_descend(self):
+    def test_singular_values_descend(self) -> None:
         rng = random.Random(11)
         a = [[rng.gauss(0, 1) for _ in range(4)] for _ in range(6)]
         _, s, _ = la.jacobi_svd(a)
         assert s == sorted(s, reverse=True)
 
-    def test_jacobi_handles_wide_matrices(self):
+    def test_jacobi_handles_wide_matrices(self) -> None:
         a = [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]
         u, s, v = la.jacobi_svd(a)
         assert len(s) == 2 and all(value >= 0 for value in s)
 
-    def test_randomised_svd_approximates_the_leading_spectrum(self):
+    def test_randomised_svd_approximates_the_leading_spectrum(self) -> None:
         rng = random.Random(3)
         a = [[rng.gauss(0, 1) for _ in range(24)] for _ in range(30)]
         _, approx, _ = la.randomised_svd(a, 4, power_iterations=3, rng=random.Random(1))
@@ -97,7 +97,7 @@ class TestLinearAlgebra:
         for got, want in zip(approx, exact[:4]):
             assert got == pytest.approx(want, rel=0.05)
 
-    def test_gram_schmidt_orthonormalises(self):
+    def test_gram_schmidt_orthonormalises(self) -> None:
         a = [[1.0, 1.0], [1.0, 0.0], [0.0, 1.0]]
         q = la.modified_gram_schmidt(a)
         columns = la.transpose(q)
@@ -105,7 +105,7 @@ class TestLinearAlgebra:
         assert la.norm(columns[0]) == pytest.approx(1.0)
 
     @pytest.mark.parametrize("trial", range(40))
-    def test_hungarian_matches_brute_force(self, trial):
+    def test_hungarian_matches_brute_force(self, trial: int) -> None:
         rng = random.Random(trial)
         n = rng.randint(1, 4)
         m = rng.randint(n, 5)
@@ -118,18 +118,18 @@ class TestLinearAlgebra:
         )
         assert got == pytest.approx(best)
 
-    def test_hungarian_rejects_more_rows_than_columns(self):
+    def test_hungarian_rejects_more_rows_than_columns(self) -> None:
         with pytest.raises(ValueError):
             la.hungarian([[1.0], [2.0], [3.0]])
 
-    def test_dtw_is_zero_for_identical_series(self):
+    def test_dtw_is_zero_for_identical_series(self) -> None:
         assert la.dtw_distance([1, 2, 3], [1, 2, 3]) == pytest.approx(0.0)
 
-    def test_dtw_absorbs_a_repeated_sample(self):
+    def test_dtw_absorbs_a_repeated_sample(self) -> None:
         assert la.dtw_distance([1, 2, 3], [1, 1, 2, 3]) == pytest.approx(0.0)
 
-    def test_cosine_is_zero_for_degenerate_vectors(self):
+    def test_cosine_is_zero_for_degenerate_vectors(self) -> None:
         assert la.cosine([0.0, 0.0], [1.0, 1.0]) == 0.0
 
-    def test_zscore_of_a_constant_series(self):
+    def test_zscore_of_a_constant_series(self) -> None:
         assert la.zscore([5.0, 5.0, 5.0]) == [0.0, 0.0, 0.0]

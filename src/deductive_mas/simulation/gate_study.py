@@ -19,7 +19,7 @@ the gate was only advisory.
 import ast
 import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Iterable
 
 from ..agents.intervention import _FALLBACK_RUNGS
 from ..agents.orchestrator import DeductiveOrchestrator
@@ -135,7 +135,7 @@ class GateBenchmarkResult:
         return {"summary": self.summary(), "verdicts": self.verdicts}
 
 
-def _count(items) -> Dict[str, int]:
+def _count(items: Iterable[str]) -> Dict[str, int]:
     out: Dict[str, int] = {}
     for item in items:
         out[item] = out.get(item, 0) + 1
@@ -238,7 +238,7 @@ def manufacture(problem: ProblemSpec, submission: Submission) -> List[Candidate]
 class GateBenchmark:
     """Scores the gate on manufactured candidates with known verdicts."""
 
-    def __init__(self, config: Optional[Config] = None, verifier: Optional[ComplianceVerifier] = None):
+    def __init__(self, config: Optional[Config] = None, verifier: Optional[ComplianceVerifier] = None) -> None:
         self.config = config or Config()
         self.verifier = verifier or ComplianceVerifier(self.config)
 
@@ -317,7 +317,7 @@ class GateAuditResult:
 class GateAudit:
     """Runs the full pipeline and collects the gate audit records."""
 
-    def __init__(self, config: Optional[Config] = None, orchestrator: Optional[DeductiveOrchestrator] = None):
+    def __init__(self, config: Optional[Config] = None, orchestrator: Optional[DeductiveOrchestrator] = None) -> None:
         self.config = config or Config()
         self.orchestrator = orchestrator or DeductiveOrchestrator(self.config)
 

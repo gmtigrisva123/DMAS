@@ -12,6 +12,8 @@ import re
 import subprocess
 import sys
 from pathlib import Path
+from typing import Mapping, Optional, Sequence
+from typing import Any
 
 ROOT = Path(__file__).resolve().parent.parent
 RESULTS = ROOT / "experiments" / "results"
@@ -20,27 +22,27 @@ OUT = ROOT.parent / "deductive_multi_agent_system_(MAS)_paper" / "numbers.tex"
 macros: dict = {}
 
 
-def load(name):
+def load(name: str) -> Optional[dict[str, Any]]:
     path = RESULTS / name
     return json.loads(path.read_text()) if path.exists() else None
 
 
-def pct(x, digits=0):
+def pct(x: Optional[float], digits: int = 0) -> str:
     return "--" if x is None else f"{100 * x:.{digits}f}"
 
 
-def num(x, digits=2):
+def num(x: Optional[float], digits: int = 2) -> str:
     return "--" if x is None else f"{x:.{digits}f}"
 
 
-def define(name, value):
+def define(name: str, value: object) -> None:
     if not re.fullmatch(r"[A-Za-z]+", name):
         raise ValueError(name)
     macros[name] = str(value)
 
 
 # RQ1
-def bench(name, prefix):
+def bench(name: str, prefix: str) -> Optional[dict[str, Any]]:
     d = load(name)
     ok = d is not None and d.get("degraded_rows", 0) == 0
     define(prefix + "TopOne", num(d["top1_accuracy"]) if ok else "--")
@@ -125,7 +127,7 @@ for name, tag in (("gate_audit_offline.json", "Audit"), ("gate_audit_gpt-oss-120
     ok = d is not None and d.get("degraded_rows", 0) == 0
     hints = [r for r in d["records"] if r["item"].startswith("hint") and r["candidate"]] if ok else []
     chall = [r for r in d["records"] if r["item"] == "challenge" and r["candidate"]] if ok else []
-    def share(rows, source):
+    def share(rows: Sequence[Mapping[str, object]], source: str) -> str:
         return pct(sum(1 for r in rows if r["final_source"] == source) / len(rows), 1) if rows else "--"
     define(tag + "HintN", str(len(hints)) if ok else "--")
     define(tag + "HintGenerated", share(hints, "generated"))

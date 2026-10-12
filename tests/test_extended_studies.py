@@ -28,15 +28,19 @@ from deductive_mas.simulation.gate_study import GateAudit, GateBenchmark, manufa
 from deductive_mas.simulation.refactory import RefactoryStudy, load_refactory
 from deductive_mas.simulation.student import ResponseModel
 
+from typing import NoReturn
+
+from deductive_mas.domain import ProblemSpec
+
 
 # held-out bank
 class TestHeldOutBank:
-    def test_problems_resolve_through_the_shared_lookup(self):
+    def test_problems_resolve_through_the_shared_lookup(self) -> None:
         for spec in all_heldout_problems():
             assert problem(spec.pid) is spec
 
     @pytest.mark.parametrize("spec", all_heldout_problems(), ids=lambda s: s.pid)
-    def test_reference_passes_its_own_tests_and_sampler_respects_validator(self, spec):
+    def test_reference_passes_its_own_tests_and_sampler_respects_validator(self, spec: ProblemSpec) -> None:
         namespace: dict = {}
         exec(spec.reference_solution, namespace)
         fn = namespace[spec.entry_point]
@@ -46,19 +50,19 @@ class TestHeldOutBank:
         rng = Random(3)
         assert all(spec.validator(spec.sampler(rng)) for _ in range(100))
 
-    def test_labels_are_in_the_taxonomy_and_concepts_in_the_graph(self):
+    def test_labels_are_in_the_taxonomy_and_concepts_in_the_graph(self) -> None:
         graph = knowledge_graph()
         for sub in all_heldout_submissions():
             assert all(m in MISCONCEPTIONS for m in sub.gold_misconceptions), sub.sid
         for spec in all_heldout_problems():
             assert all(c in graph for c in spec.concepts), spec.pid
 
-    def test_bank_composition(self):
+    def test_bank_composition(self) -> None:
         subs = all_heldout_submissions()
         assert len(subs) == 31 and len(heldout_labelled()) == 25
         assert sum(1 for s in subs if not s.gold_misconceptions) == 6
 
-    def test_no_clean_held_out_submission_is_accused(self, config, orchestrator):
+    def test_no_clean_held_out_submission_is_accused(self, config: Config, orchestrator: DeductiveOrchestrator) -> None:
         result = DiagnosticBenchmark(config, orchestrator).run(all_heldout_submissions())
         assert result.false_positive_rate == 0.0
         assert result.report.top1_accuracy >= 0.7   # the frozen rule number is 0.76
@@ -66,32 +70,32 @@ class TestHeldOutBank:
 
 # fusion ablations + model only baseline
 class TestFusionAblations:
-    def test_naive_rules_agree_on_a_single_source(self):
+    def test_naive_rules_agree_on_a_single_source(self) -> None:
         masses = [("symbolic", MassFunction.from_scores({"m": 0.7, "~absent~": 0.0}, reliability=0.86))]
         for rule in ("max", "mean", "noisy-or"):
             assert abs(_naive_fusion(rule, masses, "m", "~absent~") - 0.7 * 0.86) < 1e-9
 
-    def test_noisy_or_exceeds_max_with_two_sources(self):
+    def test_noisy_or_exceeds_max_with_two_sources(self) -> None:
         masses = [
             ("symbolic", MassFunction.from_scores({"m": 0.5}, reliability=1.0)),
             ("dynamic", MassFunction.from_scores({"m": 0.5}, reliability=1.0)),
         ]
         assert _naive_fusion("noisy-or", masses, "m", "~absent~") > _naive_fusion("max", masses, "m", "~absent~")
 
-    def test_unknown_rule_is_refused(self):
+    def test_unknown_rule_is_refused(self) -> None:
         with pytest.raises(ValueError):
             _naive_fusion("median", [("s", MassFunction.from_scores({"m": 0.5}))], "m", "~absent~")
 
-    def test_removing_dynamic_evidence_loses_the_runtime_diagnoses(self, config):
+    def test_removing_dynamic_evidence_loses_the_runtime_diagnoses(self, config: Config) -> None:
         limited = replace(config, diagnosis=replace(config.diagnosis, sources=("symbolic",), narrate=False))
         diagnosis = DeductiveOrchestrator(limited).diagnose(problem("min_coins"), submission("mc_table_off_by_one"))
         assert "run.index-out-of-range" not in [h.misconception_id for h in diagnosis.hits]
 
-    def test_model_only_baseline_uses_the_backend_verbatim(self, config):
+    def test_model_only_baseline_uses_the_backend_verbatim(self, config: Config) -> None:
         class _Opinionated:
             name = "opinionated"
 
-            def available(self):
+            def available(self) -> bool:
                 return True
 
             def run(self, task: Task) -> Completion:
@@ -109,14 +113,14 @@ class TestFusionAblations:
         assert [h.misconception_id for h in diagnosis.hits] == ["greedy.local-optimum-assumed"]
         assert diagnosis.divergence is None and diagnosis.backend == "opinionated"
 
-    def test_a_degraded_backend_is_recorded_on_the_diagnosis(self, config):
+    def test_a_degraded_backend_is_recorded_on_the_diagnosis(self, config: Config) -> None:
         class _Down:
             name = "down"
 
-            def available(self):
+            def available(self) -> bool:
                 return True
 
-            def run(self, task):
+            def run(self, task: Task) -> NoReturn:
                 from deductive_mas.errors import BackendError
                 raise BackendError("offline for the day")
 
@@ -124,20 +128,20 @@ class TestFusionAblations:
         diagnosis = DeductiveOrchestrator(config, reasoner=reasoner).diagnose(problem("lower_bound"), submission("lb_inclusive_bound"))
         assert diagnosis.degraded
 
-    def test_a_backend_that_fails_only_on_hints_still_marks_the_row_degraded(self, config):
+    def test_a_backend_that_fails_only_on_hints_still_marks_the_row_degraded(self, config: Config) -> None:
         """The audit reruns degraded rows, a fallback rung must not count as a model rung."""
         from deductive_mas.llm.offline import OfflineReasoner
 
         class _HintsDown:
             name = "hintsdown"
 
-            def __init__(self):
+            def __init__(self) -> None:
                 self.inner = OfflineReasoner()
 
-            def available(self):
+            def available(self) -> bool:
                 return True
 
-            def run(self, task):
+            def run(self, task: Task) -> Completion:
                 from deductive_mas.errors import BackendError
                 if task.name in ("hints", "challenge"):
                     raise BackendError("rate limited")
@@ -153,7 +157,7 @@ class TestFusionAblations:
 
 # gate studies
 class TestGateStudies:
-    def test_manufactured_candidates_cover_every_category(self):
+    def test_manufactured_candidates_cover_every_category(self) -> None:
         candidates = manufacture(problem("lower_bound"), submission("lb_inclusive_bound"))
         categories = {c.category for c in candidates}
         assert {"reference-line", "reference-line-renamed", "full-solution", "prose-repair",
@@ -161,18 +165,18 @@ class TestGateStudies:
         assert all(c.should_reject for c in candidates if c.category.startswith("reference"))
         assert not any(c.should_reject for c in candidates if c.category == "student-line")
 
-    def test_correct_submissions_get_no_leak_categories(self):
+    def test_correct_submissions_get_no_leak_categories(self) -> None:
         candidates = manufacture(problem("lower_bound"), submission("lb_correct"))
         assert not any(c.should_reject for c in candidates)
 
-    def test_benchmark_on_a_slice_rejects_leaks_and_keeps_quotations(self, config):
+    def test_benchmark_on_a_slice_rejects_leaks_and_keeps_quotations(self, config: Config) -> None:
         result = GateBenchmark(config).run([submission("lb_inclusive_bound"), submission("mc_greedy")])
         summary = result.summary()
         assert summary["reference-line"]["rejection_rate"] == 1.0
         assert summary["student-line"]["rejection_rate"] == 0.0
         assert summary["question"]["rejection_rate"] == 0.0
 
-    def test_audit_records_every_rung_and_the_challenge(self, config, orchestrator):
+    def test_audit_records_every_rung_and_the_challenge(self, config: Config, orchestrator: DeductiveOrchestrator) -> None:
         result = GateAudit(config, orchestrator).run([submission("lb_inclusive_bound")])
         items = [r["item"] for r in result.records]
         assert items == ["hint-1", "hint-2", "hint-3", "challenge"]
@@ -204,14 +208,14 @@ class TestRefactoryAdapter:
         )
         return tmp_path
 
-    def test_loader_builds_tasks_with_course_tests(self, corpus):
+    def test_loader_builds_tasks_with_course_tests(self, corpus: Path) -> None:
         tasks = load_refactory(corpus)
         assert len(tasks) == 1
         task = tasks[0]
         assert task.spec.entry_point == "search" and len(task.spec.tests) == 2
         assert {s.functionally_correct for s in task.submissions} == {True, False}
 
-    def test_study_detects_the_wrong_program_and_spares_the_right_one(self, corpus, config):
+    def test_study_detects_the_wrong_program_and_spares_the_right_one(self, corpus: Path, config: Config) -> None:
         study = RefactoryStudy(replace(config, diagnosis=replace(config.diagnosis, narrate=False)))
         payload = study.run(load_refactory(corpus)).to_dict()
         overall = payload["overall"]
@@ -222,19 +226,19 @@ class TestRefactoryAdapter:
 
 # design analysis
 class TestDesignAnalysis:
-    def test_null_model_removes_every_socratic_advantage(self):
+    def test_null_model_removes_every_socratic_advantage(self) -> None:
         null = null_response_model()
         assert null.socratic_on_target == null.direct_answer
         assert null.socratic_transfer_retention == null.direct_transfer_retention
         assert null.repair_on_target == null.repair_direct
         assert null.zpd_bonus == 1.0 and null.zpd_penalty == 1.0
 
-    def test_interpolation_recovers_both_ends(self):
+    def test_interpolation_recovers_both_ends(self) -> None:
         assert interpolated_response_model(1.0) == ResponseModel()
         zero = interpolated_response_model(0.0)
         assert zero.socratic_on_target == null_response_model().socratic_on_target
 
-    def test_a_tiny_run_produces_every_section(self, config):
+    def test_a_tiny_run_produces_every_section(self, config: Config) -> None:
         result = DesignAnalysis(config).run(seeds=2, null_seeds=2, students=30, strengths=(0.0, 1.0),
                                             cohort_sizes=(30,), power_seeds=2)
         payload = result.to_dict()

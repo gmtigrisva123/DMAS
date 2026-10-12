@@ -18,7 +18,7 @@ import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable, Dict, List, Optional, Sequence, Tuple
+from typing import Callable, Dict, List, Optional, Sequence, Tuple, Iterable, Union
 
 from ..agents.orchestrator import DeductiveOrchestrator
 from ..config import Config
@@ -28,7 +28,7 @@ from ..errors import DMASError
 from ..knowledge.graph import KnowledgeGraph
 from ..knowledge.mastery import MasteryState
 from ..knowledge.ontology import knowledge_graph
-from ..ui.ansi import Style
+from ..ui.ansi import Style, _InputStream, _OutputStream
 from ..ui.render import (
     render_alignment,
     render_attempt_diff,
@@ -141,9 +141,9 @@ class TutorSession:
         style: Optional[Style] = None,
         orchestrator: Optional[DeductiveOrchestrator] = None,
         graph: Optional[KnowledgeGraph] = None,
-        input_stream=None,
-        output_stream=None,
-    ):
+        input_stream: Optional[_InputStream] = None,
+        output_stream: Optional[_OutputStream] = None,
+    ) -> None:
         self.config = config or Config()
         self.style = style or Style(self.config.color)
         self.orchestrator = orchestrator or DeductiveOrchestrator(self.config)
@@ -155,23 +155,23 @@ class TutorSession:
         self._register()
 
     # i/o
-    def emit(self, lines):
+    def emit(self, lines: Union[str, Iterable[str]]) -> None:
         if isinstance(lines, str):
             lines = [lines]
         self.output.write("\n".join(lines) + "\n")
         self.output.flush()
 
-    def blank(self):
+    def blank(self) -> None:
         self.output.write("\n")
 
-    def say(self, message: str, colour: Optional[str] = None):
+    def say(self, message: str, colour: Optional[str] = None) -> None:
         self.emit(paragraph(self.style, message, indent="  ", colour=colour))
 
-    def problem_error(self, message: str):
+    def problem_error(self, message: str) -> None:
         self.emit("  " + self.style.danger("!  ") + message)
 
     # commands
-    def _register(self):
+    def _register(self) -> None:
         definitions = [
             Command("load", ("open", "l"), "read a code file and diagnose it",
                     "load <path>", TutorSession.cmd_load),
@@ -755,7 +755,7 @@ class TutorSession:
         return out
 
     # readline
-    def _setup_readline(self):
+    def _setup_readline(self) -> None:
         if not getattr(self.input, "isatty", lambda: False)():
             return
         try:
@@ -787,8 +787,8 @@ def start(
     style: Optional[Style] = None,
     path: Optional[str] = None,
     problem_id: Optional[str] = None,
-    input_stream=None,
-    output_stream=None,
+    input_stream: Optional[_InputStream] = None,
+    output_stream: Optional[_OutputStream] = None,
 ) -> int:
     session = TutorSession(
         config, style=style, input_stream=input_stream, output_stream=output_stream

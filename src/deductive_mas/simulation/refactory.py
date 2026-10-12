@@ -318,7 +318,7 @@ class ExternalResult:
         correct = [f for f in files if f.course_correct and f.usable]
         wrong = [f for f in files if not f.course_correct and f.usable]
 
-        def rate(subset, predicate) -> Optional[float]:
+        def rate(subset: Sequence[_FileOutcome], predicate: Callable[[_FileOutcome], bool]) -> Optional[float]:
             return round(sum(1 for f in subset if predicate(f)) / len(subset), 4) if subset else None
 
         wrong_detected = [f for f in wrong if f.counterexample]
@@ -388,7 +388,7 @@ class RefactoryStudy:
         self,
         config: Optional[Config] = None,
         orchestrator: Optional[DeductiveOrchestrator] = None,
-    ):
+    ) -> None:
         self.config = config or Config()
         self.orchestrator = orchestrator or DeductiveOrchestrator(self.config)
 

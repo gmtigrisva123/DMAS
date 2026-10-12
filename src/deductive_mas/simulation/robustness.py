@@ -15,7 +15,7 @@ import ast
 import copy
 import random
 from dataclasses import dataclass, field
-from typing import Callable, Dict, List, Optional, Sequence, Tuple
+from typing import Callable, Dict, List, Optional, Sequence, Tuple, Union
 
 from ..agents.orchestrator import DeductiveOrchestrator
 from ..analysis.tracer import GuardedRunner
@@ -37,7 +37,7 @@ _PROTECTED = frozenset(
 class _Obfuscate(ast.NodeTransformer):
     """Rename every user identifier to an unhelpful but legal name."""
 
-    def __init__(self, rng: random.Random, keep: Sequence[str] = ()):
+    def __init__(self, rng: random.Random, keep: Sequence[str] = ()) -> None:
         self.rng = rng
         self.keep = set(keep)
         self.mapping: Dict[str, str] = {}
@@ -63,7 +63,7 @@ class _Obfuscate(ast.NodeTransformer):
 class _SplitAssignments(ast.NodeTransformer):
     """a, b = x, y becomes two statements."""
 
-    def visit_Assign(self, node: ast.Assign):
+    def visit_Assign(self, node: ast.Assign) -> Union[ast.Assign, List[ast.stmt]]:
         self.generic_visit(node)
         if len(node.targets) != 1:
             return node
@@ -89,7 +89,7 @@ class _SplitAssignments(ast.NodeTransformer):
 class _InvertConditionals(ast.NodeTransformer):
     """if C: A else: B becomes if not C: B else: A."""
 
-    def visit_If(self, node: ast.If):
+    def visit_If(self, node: ast.If) -> ast.If:
         self.generic_visit(node)
         if not node.orelse:
             return node
@@ -102,7 +102,7 @@ class _InvertConditionals(ast.NodeTransformer):
 class _ExpandAugmented(ast.NodeTransformer):
     """x += 1 becomes x = x + 1."""
 
-    def visit_AugAssign(self, node: ast.AugAssign):
+    def visit_AugAssign(self, node: ast.AugAssign) -> Union[ast.AugAssign, ast.Assign]:
         self.generic_visit(node)
         if not isinstance(node.target, ast.Name):
             return node
@@ -117,7 +117,7 @@ class _ExpandAugmented(ast.NodeTransformer):
 class _InjectNoise(ast.NodeTransformer):
     """Add a docstring and a dead assignment to every function."""
 
-    def visit_FunctionDef(self, node: ast.FunctionDef):
+    def visit_FunctionDef(self, node: ast.FunctionDef) -> ast.FunctionDef:
         self.generic_visit(node)
         docstring = ast.Expr(value=ast.Constant(value="Solution attempt. TODO: check edge cases."))
         dead = ast.Assign(
@@ -249,7 +249,7 @@ class RobustnessStudy:
         self,
         config: Optional[Config] = None,
         orchestrator: Optional[DeductiveOrchestrator] = None,
-    ):
+    ) -> None:
         self.config = config or Config()
         self.orchestrator = orchestrator or DeductiveOrchestrator(self.config)
         self.runner = GuardedRunner(self.config.execution)

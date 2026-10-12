@@ -1,0 +1,152 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1116" viewBox="0 0 1080 1116" fill="none" role="img" aria-labelledby="title description">
+  <title id="title">DMAS — repository layout</title>
+  <desc id="description">The dmas launcher runs the CLI from a checkout without installation. Under src/deductive_mas, domain.py, config.py, and pipeline.py provide shared vocabulary, settings, and composition. The source directories are util, analysis, knowledge, retrieval, llm, agents, simulation, stats, ui, and cli. Other top-level directories are tests, experiments, and docs. The complete directory descriptions and copyable layout appear below this illustration.</desc>
+  <defs>
+    <linearGradient id="frame" x1="8" y1="8" x2="1072" y2="1108" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#111c30"/>
+      <stop offset="0.48" stop-color="#0b1222"/>
+      <stop offset="1" stop-color="#101c2c"/>
+    </linearGradient>
+    <linearGradient id="border" x1="8" y1="8" x2="1072" y2="1108" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#527a98"/>
+      <stop offset="0.4" stop-color="#28354c"/>
+      <stop offset="1" stop-color="#386958"/>
+    </linearGradient>
+    <linearGradient id="header" x1="8" y1="8" x2="1072" y2="72" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#1b2940"/>
+      <stop offset="1" stop-color="#142336"/>
+    </linearGradient>
+    <linearGradient id="card" x1="44" y1="0" x2="1036" y2="0" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#162136"/>
+      <stop offset="1" stop-color="#101a2c"/>
+    </linearGradient>
+    <radialGradient id="ambient">
+      <stop stop-color="#38bdf8" stop-opacity="0.08"/>
+      <stop offset="1" stop-color="#38bdf8" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="125%">
+      <feDropShadow dx="0" dy="5" stdDeviation="6" flood-color="#020617" flood-opacity="0.32"/>
+    </filter>
+    <clipPath id="source-clip">
+      <rect x="44" y="225" width="992" height="614" rx="14"/>
+    </clipPath>
+    <symbol id="folder" viewBox="0 0 20 16">
+      <path d="M1 3V1H7L10 4H19V15H1V3Z" fill="currentColor" fill-opacity="0.12" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>
+      <path d="M1 5H19" stroke="currentColor" stroke-width="1.3"/>
+    </symbol>
+  </defs>
+
+  <rect x="8" y="8" width="1064" height="1100" rx="22" fill="url(#frame)" stroke="url(#border)" stroke-width="1.5"/>
+  <path d="M30 9H1050A21 21 0 0 1 1071 30V72H9V30A21 21 0 0 1 30 9Z" fill="url(#header)"/>
+  <ellipse cx="910" cy="120" rx="250" ry="180" fill="url(#ambient)"/>
+  <path d="M9 72H1071" stroke="#2b3b53"/>
+  <circle cx="38" cy="40" r="6" fill="#ff6b7a"/>
+  <circle cx="59" cy="40" r="6" fill="#ffd166"/>
+  <circle cx="80" cy="40" r="6" fill="#5ee0a0"/>
+  <path d="m112 34 7 6-7 6m12 0h9" stroke="#67e8f9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+    <text x="147" y="46" fill="#f0f6ff" font-size="18" font-weight="700" letter-spacing="1.5">DMAS</text>
+    <text x="212" y="46" fill="#6e839f" font-size="18">/</text>
+    <text x="231" y="46" fill="#b4c4db" font-size="17">layout</text>
+    <rect x="845" y="25" width="191" height="30" rx="15" fill="#12313a" stroke="#255260"/>
+    <circle cx="863" cy="40" r="3.5" fill="#5eead4"/>
+    <text x="876" y="44" fill="#99f6e4" font-size="11" font-weight="600" letter-spacing="1">REPOSITORY MAP</text>
+    <text x="44" y="109" fill="#a8bdd7" font-size="12" font-weight="600" letter-spacing="2.2">PROJECT AT A GLANCE</text>
+  </g>
+  <g font-family="'SFMono-Regular', Menlo, Consolas, 'Liberation Mono', monospace">
+    <text x="1036" y="109" text-anchor="end" fill="#7f96b4" font-size="13"><tspan fill="#93c5fd">source</tspan> <tspan fill="#4d6688">·</tspan> <tspan fill="#99f6e4">tests</tspan> <tspan fill="#4d6688">·</tspan> <tspan fill="#fcd878">experiments</tspan> <tspan fill="#4d6688">·</tspan> <tspan fill="#c4b5fd">docs</tspan></text>
+
+    <rect x="44" y="135" width="992" height="70" rx="14" fill="url(#card)" stroke="#2d5265" filter="url(#shadow)"/>
+    <rect x="44" y="153" width="3" height="34" rx="1.5" fill="#67e8f9"/>
+    <rect x="72" y="153" width="150" height="34" rx="8" fill="#163a49" stroke="#2d6475"/>
+    <path d="m88 164 5 5-5 5m10 0h7" stroke="#67e8f9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="121" y="176" fill="#a5f3fc" font-size="18" font-weight="600">dmas</text>
+    <text x="304" y="176" fill="#d8e3f3" font-size="16">run the CLI from a checkout, no install</text>
+
+    <rect x="44" y="225" width="992" height="614" rx="14" fill="url(#card)" filter="url(#shadow)"/>
+    <g clip-path="url(#source-clip)">
+      <rect x="44" y="225" width="992" height="56" fill="#172b40"/>
+      <rect x="44" y="281" width="992" height="53" fill="#1c243a"/>
+      <rect x="44" y="381" width="992" height="47" fill="#15243a"/>
+      <rect x="44" y="475" width="992" height="47" fill="#15243a"/>
+      <rect x="44" y="569" width="992" height="47" fill="#15243a"/>
+      <rect x="44" y="683" width="992" height="47" fill="#15243a"/>
+      <rect x="44" y="777" width="992" height="47" fill="#15243a"/>
+    </g>
+    <rect x="44" y="225" width="992" height="614" rx="14" stroke="#344b67"/>
+    <use href="#folder" x="72" y="242" width="24" height="20" color="#93c5fd"/>
+    <text x="111" y="263" fill="#b5ddff" font-size="20" font-weight="600">src/deductive_mas/</text>
+    <rect x="909" y="241" width="99" height="28" rx="7" fill="#1b3b54" stroke="#315c7a"/>
+    <text x="958.5" y="260" text-anchor="middle" fill="#a5e4ff" font-size="12" font-weight="600" letter-spacing="1.2">SOURCE</text>
+    <path d="M72 281H1008M72 334H1008" stroke="#344057"/>
+
+    <rect x="72" y="293" width="118" height="29" rx="6" fill="#2e254a" stroke="#55447d"/>
+    <text x="131" y="313" text-anchor="middle" fill="#d8c5ff" font-size="15">domain.py</text>
+    <rect x="202" y="293" width="118" height="29" rx="6" fill="#2e254a" stroke="#55447d"/>
+    <text x="261" y="313" text-anchor="middle" fill="#d8c5ff" font-size="15">config.py</text>
+    <rect x="332" y="293" width="136" height="29" rx="6" fill="#2e254a" stroke="#55447d"/>
+    <text x="400" y="313" text-anchor="middle" fill="#d8c5ff" font-size="15">pipeline.py</text>
+    <text x="499" y="313" fill="#b8c9df" font-size="15">shared vocabulary, settings, composition</text>
+
+    <path d="M85 348V797q0 5 5 5h15M85 357H105M85 404H105M85 451H105M85 498H105M85 545H105M85 592H105M85 639H105M85 708H105M85 755H105" stroke="#3e526f" stroke-width="1.3" stroke-linecap="round"/>
+    <use href="#folder" x="107" y="347" width="20" height="16" color="#67e8f9"/>
+    <text x="140" y="362" fill="#a5f3fc" font-size="16" font-weight="600">util/</text>
+    <text x="304" y="362" fill="#d8e3f3" font-size="16">determinism, tokenisation, linear algebra</text>
+
+    <use href="#folder" x="107" y="394" width="20" height="16" color="#a78bfa"/>
+    <text x="140" y="409" fill="#d8c5ff" font-size="16" font-weight="600">analysis/</text>
+    <text x="304" y="409" fill="#d8e3f3" font-size="16">CFG, dataflow, cost, tracing, alignment, shrinking, leakage</text>
+
+    <use href="#folder" x="107" y="441" width="20" height="16" color="#38bdf8"/>
+    <text x="140" y="456" fill="#a5e4ff" font-size="16" font-weight="600">knowledge/</text>
+    <text x="304" y="456" fill="#d8e3f3" font-size="16">ontology, misconception taxonomy, mastery, ZPD</text>
+
+    <use href="#folder" x="107" y="488" width="20" height="16" color="#5eead4"/>
+    <text x="140" y="503" fill="#99f6e4" font-size="16" font-weight="600">retrieval/</text>
+    <text x="304" y="503" fill="#d8e3f3" font-size="16">BM25, LSA, fusion, corpus, MA-RAG</text>
+
+    <use href="#folder" x="107" y="535" width="20" height="16" color="#fbbf24"/>
+    <text x="140" y="550" fill="#fcd878" font-size="16" font-weight="600">llm/</text>
+    <text x="304" y="550" fill="#d8e3f3" font-size="16">Claude, OpenAI-compatible endpoints, offline reasoner, caching</text>
+
+    <use href="#folder" x="107" y="582" width="20" height="16" color="#c4b5fd"/>
+    <text x="140" y="597" fill="#d8c5ff" font-size="16" font-weight="600">agents/</text>
+    <text x="304" y="597" fill="#d8e3f3" font-size="16">the three agents, the gate, the orchestrator</text>
+
+    <use href="#folder" x="107" y="629" width="20" height="16" color="#f9a8d4"/>
+    <text x="140" y="644" fill="#fbcfe8" font-size="16" font-weight="600">simulation/</text>
+    <text x="304" y="644" fill="#d8e3f3" font-size="16">
+      <tspan x="304">RQ1 benchmark, RQ2 experiment + design analysis, RQ3 robustness,</tspan>
+      <tspan x="304" dy="23">gate benchmark and audit, external validation (Refactory)</tspan>
+    </text>
+
+    <use href="#folder" x="107" y="698" width="20" height="16" color="#93c5fd"/>
+    <text x="140" y="713" fill="#b5ddff" font-size="16" font-weight="600">stats/</text>
+    <text x="304" y="713" fill="#d8e3f3" font-size="16">special functions, tests, effect sizes, power, agreement</text>
+
+    <use href="#folder" x="107" y="745" width="20" height="16" color="#67e8f9"/>
+    <text x="140" y="760" fill="#a5f3fc" font-size="16" font-weight="600">ui/</text>
+    <text x="304" y="760" fill="#d8e3f3" font-size="16">terminal user interface, the interactive UI</text>
+
+    <use href="#folder" x="107" y="792" width="20" height="16" color="#5eead4"/>
+    <text x="140" y="807" fill="#99f6e4" font-size="16" font-weight="600">cli/</text>
+    <text x="304" y="807" fill="#d8e3f3" font-size="16">terminal presentation, the dmas command, the interactive session</text>
+
+    <rect x="44" y="859" width="992" height="64" rx="12" fill="#142b2e" stroke="#2c5a50" filter="url(#shadow)"/>
+    <rect x="44" y="877" width="3" height="28" rx="1.5" fill="#86efac"/>
+    <use href="#folder" x="72" y="881" width="22" height="18" color="#86efac"/>
+    <text x="109" y="898" fill="#a7f3c4" font-size="18" font-weight="600">tests/</text>
+    <text x="304" y="898" fill="#d8e3f3" font-size="16">the test suite</text>
+
+    <rect x="44" y="935" width="992" height="76" rx="12" fill="#28261f" stroke="#534732" filter="url(#shadow)"/>
+    <rect x="44" y="953" width="3" height="40" rx="1.5" fill="#fbbf24"/>
+    <use href="#folder" x="72" y="963" width="22" height="18" color="#fbbf24"/>
+    <text x="109" y="980" fill="#fcd878" font-size="18" font-weight="600">experiments/</text>
+    <text x="304" y="980" fill="#d8e3f3" font-size="16">result files, figure and number scripts, the live-run driver</text>
+
+    <rect x="44" y="1023" width="992" height="64" rx="12" fill="#211f35" stroke="#49405f" filter="url(#shadow)"/>
+    <rect x="44" y="1041" width="3" height="28" rx="1.5" fill="#c4b5fd"/>
+    <use href="#folder" x="72" y="1045" width="22" height="18" color="#c4b5fd"/>
+    <text x="109" y="1062" fill="#d8c5ff" font-size="18" font-weight="600">docs/</text>
+  </g>
+</svg>

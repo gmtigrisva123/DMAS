@@ -274,7 +274,7 @@ class LeakageDetector:
     # compared at its own k.
     LADDER = (3, 5)
 
-    def __init__(self, *, kgram: int = 5, window: int = 4):
+    def __init__(self, *, kgram: int = 5, window: int = 4) -> None:
         self.kgram = kgram
         self.window = window
 

@@ -13,26 +13,28 @@ from deductive_mas.data.submissions import (
     labelled,
     submission,
 )
+from deductive_mas.domain import ProblemSpec, Submission
+from deductive_mas.knowledge.graph import KnowledgeGraph
 from deductive_mas.knowledge.misconceptions import MISCONCEPTIONS
 
 
 @pytest.fixture(scope="module")
-def searcher():
+def searcher() -> CounterexampleSearch:
     config = dataclasses.replace(ExecutionConfig(), max_steps=12_000, max_seconds=0.4)
     return CounterexampleSearch(GuardedRunner(config))
 
 
 class TestProblemBank:
-    def test_bank_is_populated(self):
+    def test_bank_is_populated(self) -> None:
         assert len(all_problems()) >= 6
 
-    def test_unknown_problem_raises_with_a_helpful_message(self):
+    def test_unknown_problem_raises_with_a_helpful_message(self) -> None:
         with pytest.raises(KeyError) as info:
             problem("nope")
         assert "known problems" in str(info.value)
 
     @pytest.mark.parametrize("spec", all_problems(), ids=lambda s: s.pid)
-    def test_reference_solution_passes_its_own_tests(self, spec):
+    def test_reference_solution_passes_its_own_tests(self, spec: ProblemSpec) -> None:
         namespace = GuardedRunner().compile_module(spec.reference_solution)
         function = namespace[spec.entry_point]
         for test in spec.tests:
@@ -40,34 +42,34 @@ class TestProblemBank:
             assert function(*args) == test.expected, test.label
 
     @pytest.mark.parametrize("spec", all_problems(), ids=lambda s: s.pid)
-    def test_concepts_exist_in_the_ontology(self, spec, graph):
+    def test_concepts_exist_in_the_ontology(self, spec: ProblemSpec, graph: KnowledgeGraph) -> None:
         assert all(concept in graph for concept in spec.concepts)
 
     @pytest.mark.parametrize("spec", all_problems(), ids=lambda s: s.pid)
-    def test_sampler_always_satisfies_the_validator(self, spec):
+    def test_sampler_always_satisfies_the_validator(self, spec: ProblemSpec) -> None:
         rng = random.Random(3)
         for _ in range(120):
             assert spec.validator(spec.sampler(rng))
 
     @pytest.mark.parametrize("spec", all_problems(), ids=lambda s: s.pid)
-    def test_declared_tests_satisfy_the_validator(self, spec):
+    def test_declared_tests_satisfy_the_validator(self, spec: ProblemSpec) -> None:
         assert all(spec.validator(test.args) for test in spec.tests)
 
     @pytest.mark.parametrize("spec", all_problems(), ids=lambda s: s.pid)
-    def test_boundary_cases_are_covered(self, spec):
+    def test_boundary_cases_are_covered(self, spec: ProblemSpec) -> None:
         assert len(spec.tests) >= 4
 
 
 class TestSubmissionBank:
-    def test_bank_contains_clean_and_flawed_work(self):
+    def test_bank_contains_clean_and_flawed_work(self) -> None:
         assert len(labelled()) >= 20
         assert len(correct_submissions()) >= 5
 
-    def test_unknown_submission_raises(self):
+    def test_unknown_submission_raises(self) -> None:
         with pytest.raises(KeyError):
             submission("nope")
 
-    def test_gold_labels_are_in_the_taxonomy(self):
+    def test_gold_labels_are_in_the_taxonomy(self) -> None:
         unknown = [
             label for s in all_submissions()
             for label in s.gold_misconceptions
@@ -75,15 +77,15 @@ class TestSubmissionBank:
         ]
         assert unknown == []
 
-    def test_every_submission_names_a_real_problem(self):
+    def test_every_submission_names_a_real_problem(self) -> None:
         assert all(problem(s.problem_id) for s in all_submissions())
 
-    def test_clean_submissions_carry_no_labels(self):
+    def test_clean_submissions_carry_no_labels(self) -> None:
         assert all(not s.gold_misconceptions for s in correct_submissions())
         assert all(s.functionally_correct for s in correct_submissions())
 
     @pytest.mark.parametrize("sub", all_submissions(), ids=lambda s: s.sid)
-    def test_declared_correctness_matches_observed_behaviour(self, sub, searcher):
+    def test_declared_correctness_matches_observed_behaviour(self, sub: Submission, searcher: CounterexampleSearch) -> None:
         spec = problem(sub.problem_id)
         outcome = searcher.search(spec, sub.source, rng=random.Random(11), random_attempts=45)
         assert outcome.found == (not sub.functionally_correct), (

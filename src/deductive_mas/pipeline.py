@@ -87,7 +87,7 @@ class AnalysisResult:
 class AnalysisEngine:
     """Runs the pipeline for one (problem, submission) pair."""
 
-    def __init__(self, config: Optional[Config] = None):
+    def __init__(self, config: Optional[Config] = None) -> None:
         self.config = config or Config()
         self.runner = GuardedRunner(self.config.execution)
         self.searcher = CounterexampleSearch(
@@ -176,7 +176,7 @@ class AnalysisEngine:
         submission: Submission,
         entry: str,
         result: AnalysisResult,
-    ):
+    ) -> None:
         args = self._trace_input(problem, result)
         if args is None:
             result.notes.append("no input available for tracing")
@@ -345,7 +345,7 @@ def resolve_entry(source: str, expected: str) -> str:
     return top_level[0] if top_level else (names[0] if names else expected)
 
 
-def _module_level_names(tree) -> Tuple[str, ...]:
+def _module_level_names(tree: Optional[ast.AST]) -> Tuple[str, ...]:
     """Names bound at module level (functions, classes, imports, globals).
     Without these a recursive call would look like use before definition.
     """

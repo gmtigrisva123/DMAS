@@ -362,7 +362,7 @@ def _loops(function: ast.FunctionDef) -> List[LoopFact]:
     """Collect loops with nesting depth and body extent."""
     out: List[LoopFact] = []
 
-    def visit(node: ast.AST, depth: int):
+    def visit(node: ast.AST, depth: int) -> None:
         for child in ast.iter_child_nodes(node):
             if isinstance(child, (ast.For, ast.AsyncFor, ast.While)):
                 body = list(getattr(child, "body", []))

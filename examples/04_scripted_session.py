@@ -8,6 +8,7 @@ through the same dialogue a person would have, including edit and retry.
 import io
 import tempfile
 from pathlib import Path
+from typing import Callable, Union
 
 from deductive_mas.cli.session import TutorSession
 from deductive_mas.ui.ansi import Style
@@ -29,13 +30,13 @@ FIXED = BROKEN.replace("len(a) - 1", "len(a)    ")
 class Script:
     """Commands, mixed with callables that play the learner's editor."""
 
-    def __init__(self, *items):
+    def __init__(self, *items: Union[str, Callable[[], object]]) -> None:
         self.items = list(items)
 
-    def isatty(self):
+    def isatty(self) -> bool:
         return False
 
-    def readline(self):
+    def readline(self) -> str:
         while self.items:
             item = self.items.pop(0)
             if callable(item):
@@ -45,7 +46,7 @@ class Script:
         return ""
 
 
-def main():
+def main() -> None:
     with tempfile.TemporaryDirectory() as folder:
         path = Path(folder) / "attempt.py"
         path.write_text(BROKEN, encoding="utf-8")

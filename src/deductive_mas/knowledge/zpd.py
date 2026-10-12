@@ -134,7 +134,7 @@ class ScoredItem:
 class ZPDSelector:
     """Picks the next task: in the ZPD, informative and on target."""
 
-    def __init__(self, config: Optional[InterventionConfig] = None):
+    def __init__(self, config: Optional[InterventionConfig] = None) -> None:
         self.config = config or InterventionConfig()
 
     def band_weight(self, probability: float) -> float:

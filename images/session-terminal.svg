@@ -1,0 +1,146 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1124" viewBox="0 0 1080 1124" fill="none" role="img" aria-labelledby="title description">
+  <title id="title">DMAS — an interactive Socratic terminal session</title>
+  <desc id="description">Load attempt.py: Mixed interval conventions, confidence 0.77, line 4, 5 of 7 inputs pass. Hint 1 of 3 asks the student to trace their own function. Hint 2 of 3 questions the assumed range of hi. After the student edits the file, retry reports no finding, 87 of 87 inputs pass, the misconception resolved, and Loop invariants mastery increasing from 0.39 to 0.72. The complete, copyable transcript appears below this illustration.</desc>
+  <defs>
+    <linearGradient id="frame" x1="8" y1="8" x2="1072" y2="1116" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#111c30"/>
+      <stop offset="0.48" stop-color="#0b1222"/>
+      <stop offset="1" stop-color="#101c2c"/>
+    </linearGradient>
+    <linearGradient id="border" x1="8" y1="8" x2="1072" y2="1116" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#527a98"/>
+      <stop offset="0.4" stop-color="#28354c"/>
+      <stop offset="1" stop-color="#386958"/>
+    </linearGradient>
+    <linearGradient id="header" x1="8" y1="8" x2="1072" y2="72" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#1b2940"/>
+      <stop offset="1" stop-color="#142336"/>
+    </linearGradient>
+    <linearGradient id="card" x1="44" y1="0" x2="1036" y2="0" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#162136"/>
+      <stop offset="1" stop-color="#101a2c"/>
+    </linearGradient>
+    <linearGradient id="success" x1="44" y1="839" x2="1036" y2="1096" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#122a2c"/>
+      <stop offset="1" stop-color="#101f2b"/>
+    </linearGradient>
+    <linearGradient id="rule" x1="72" y1="0" x2="1008" y2="0" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#34445e"/>
+      <stop offset="1" stop-color="#34445e" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="mastery" x1="824" y1="0" x2="994" y2="0" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2dd4bf"/>
+      <stop offset="1" stop-color="#86efac"/>
+    </linearGradient>
+    <radialGradient id="ambient">
+      <stop stop-color="#38bdf8" stop-opacity="0.08"/>
+      <stop offset="1" stop-color="#38bdf8" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="125%">
+      <feDropShadow dx="0" dy="5" stdDeviation="6" flood-color="#020617" flood-opacity="0.32"/>
+    </filter>
+  </defs>
+
+  <rect x="8" y="8" width="1064" height="1108" rx="22" fill="url(#frame)" stroke="url(#border)" stroke-width="1.5"/>
+  <path d="M30 9H1050A21 21 0 0 1 1071 30V72H9V30A21 21 0 0 1 30 9Z" fill="url(#header)"/>
+  <ellipse cx="910" cy="120" rx="250" ry="180" fill="url(#ambient)"/>
+  <path d="M9 72H1071" stroke="#2b3b53"/>
+  <circle cx="38" cy="40" r="6" fill="#ff6b7a"/>
+  <circle cx="59" cy="40" r="6" fill="#ffd166"/>
+  <circle cx="80" cy="40" r="6" fill="#5ee0a0"/>
+  <path d="m112 34 7 6-7 6m12 0h9" stroke="#67e8f9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+    <text x="147" y="46" fill="#f0f6ff" font-size="18" font-weight="700" letter-spacing="1.5">DMAS</text>
+    <text x="212" y="46" fill="#6e839f" font-size="18">/</text>
+    <text x="231" y="46" fill="#b4c4db" font-size="17">session</text>
+    <rect x="845" y="25" width="191" height="30" rx="15" fill="#12313a" stroke="#255260"/>
+    <circle cx="863" cy="40" r="3.5" fill="#5eead4"/>
+    <text x="876" y="44" fill="#99f6e4" font-size="11" font-weight="600" letter-spacing="1.1">INTERACTIVE · LOCAL</text>
+    <text x="44" y="109" fill="#a8bdd7" font-size="12" font-weight="600" letter-spacing="2.2">ONE RUNG AT A TIME</text>
+  </g>
+  <g font-family="'SFMono-Regular', Menlo, Consolas, 'Liberation Mono', monospace">
+    <text x="1036" y="109" text-anchor="end" fill="#7f96b4" font-size="13">load <tspan fill="#4d6688">→</tspan> hint <tspan fill="#4d6688">→</tspan> retry</text>
+
+    <rect x="44" y="135" width="992" height="171" rx="14" fill="url(#card)" stroke="#304059" filter="url(#shadow)"/>
+    <rect x="44" y="157" width="3" height="127" rx="1.5" fill="#fbbf24"/>
+    <text x="72" y="172" font-size="19"><tspan fill="#67e8f9" font-weight="700">dmas</tspan><tspan fill="#6b829f"> ▸ </tspan><tspan fill="#f1f5ff">load</tspan><tspan fill="#c4b5fd"> attempt.py</tspan></text>
+    <text x="72" y="207" fill="#a7bad4" font-size="16"><tspan fill="#6b829f">loaded  </tspan><tspan fill="#d8e3f3">attempt.py</tspan><tspan fill="#526b8d">  ·  </tspan>10 lines<tspan fill="#526b8d">  ·  </tspan>task <tspan fill="#93c5fd">lower_bound</tspan></text>
+    <rect x="72" y="225" width="138" height="30" rx="7" fill="#3a2c19" stroke="#705629"/>
+    <text x="141" y="245" text-anchor="middle" fill="#fcd878" font-size="14" font-weight="700" letter-spacing="1">DIAGNOSIS</text>
+    <text x="229" y="246" fill="#f5dcab" font-size="19" font-weight="600">Mixed interval conventions</text>
+    <rect x="849" y="225" width="89" height="30" rx="7" fill="#2d2b23" stroke="#5d5132"/>
+    <text x="893" y="245" text-anchor="middle" fill="#fcd878" font-size="16">0.77</text>
+    <rect x="950" y="225" width="58" height="30" rx="7" fill="#233149" stroke="#3c506d"/>
+    <text x="979" y="245" text-anchor="middle" fill="#b5cef1" font-size="15">L4</text>
+    <text x="72" y="285" font-size="17"><tspan fill="#fcd878" font-weight="700">5/7</tspan><tspan fill="#afc1d9"> inputs pass</tspan></text>
+    <g transform="translate(808 273)">
+      <rect width="24" height="7" rx="3.5" fill="#fbbf24"/>
+      <rect x="29" width="24" height="7" rx="3.5" fill="#fbbf24"/>
+      <rect x="58" width="24" height="7" rx="3.5" fill="#fbbf24"/>
+      <rect x="87" width="24" height="7" rx="3.5" fill="#fbbf24"/>
+      <rect x="116" width="24" height="7" rx="3.5" fill="#fbbf24"/>
+      <rect x="145" width="24" height="7" rx="3.5" fill="#2e3b50"/>
+      <rect x="174" width="24" height="7" rx="3.5" fill="#2e3b50"/>
+    </g>
+
+    <rect x="44" y="326" width="992" height="235" rx="14" fill="url(#card)" stroke="#3b3b60" filter="url(#shadow)"/>
+    <rect x="44" y="348" width="3" height="191" rx="1.5" fill="#a78bfa"/>
+    <text x="72" y="363" font-size="19"><tspan fill="#67e8f9" font-weight="700">dmas</tspan><tspan fill="#6b829f"> ▸ </tspan><tspan fill="#f1f5ff">hint</tspan></text>
+    <rect x="72" y="386" width="124" height="28" rx="7" fill="#2e254a" stroke="#55447d"/>
+    <text x="134" y="405" text-anchor="middle" fill="#d8c5ff" font-size="15" font-weight="700">hint 1/3</text>
+    <text x="215" y="405" font-size="16"><tspan fill="#c4b5fd">orienting</tspan><tspan fill="#526b8d">  ·  </tspan><tspan fill="#93c5fd">Loop invariants</tspan></text>
+    <g transform="translate(925 399)">
+      <circle r="5" fill="#c4b5fd"/>
+      <path d="M10 0H27M44 0H61" stroke="#3c4561" stroke-width="2"/>
+      <circle cx="35" r="4" fill="#202b42" stroke="#576480"/>
+      <circle cx="70" r="4" fill="#202b42" stroke="#576480"/>
+    </g>
+    <text x="72" y="446" fill="#d8e3f3" font-size="18">
+      <tspan x="72">Take the input <tspan fill="#fde68a">([0], 1)</tspan> and step through your own function by hand,</tspan>
+      <tspan x="72" dy="26">writing down the values at <tspan fill="#c4b5fd">line 4</tspan> each time you reach it. Stop at the</tspan>
+      <tspan x="72" dy="26">first moment a value surprises you.</tspan>
+    </text>
+    <path d="M72 517H1008" stroke="url(#rule)"/>
+    <text x="72" y="541" fill="#9aaec9" font-size="15" font-style="italic">sit with that one first — <tspan fill="#c4b5fd" font-style="normal">`hint`</tspan> again when you are stuck</text>
+
+    <rect x="44" y="581" width="992" height="203" rx="14" fill="url(#card)" stroke="#284b67" filter="url(#shadow)"/>
+    <rect x="44" y="603" width="3" height="159" rx="1.5" fill="#38bdf8"/>
+    <text x="72" y="618" font-size="19"><tspan fill="#67e8f9" font-weight="700">dmas</tspan><tspan fill="#6b829f"> ▸ </tspan><tspan fill="#f1f5ff">hint</tspan></text>
+    <rect x="72" y="641" width="124" height="28" rx="7" fill="#18344b" stroke="#315c7a"/>
+    <text x="134" y="660" text-anchor="middle" fill="#a5e4ff" font-size="15" font-weight="700">hint 2/3</text>
+    <text x="215" y="660" font-size="16"><tspan fill="#7dd3fc">contradiction</tspan><tspan fill="#526b8d">  ·  </tspan><tspan fill="#93c5fd">Loop invariants</tspan></text>
+    <g transform="translate(925 654)">
+      <circle r="4" fill="#8b78bb"/>
+      <path d="M10 0H27" stroke="#6597bc" stroke-width="2"/>
+      <circle cx="35" r="5" fill="#7dd3fc"/>
+      <path d="M44 0H61" stroke="#3c4561" stroke-width="2"/>
+      <circle cx="70" r="4" fill="#202b42" stroke="#576480"/>
+    </g>
+    <text x="72" y="701" fill="#d8e3f3" font-size="18">
+      <tspan x="72">At that point your <tspan fill="#c4b5fd">`hi`</tspan> holds <tspan fill="#fde68a">0</tspan>, but for the answer to be reachable it</tspan>
+      <tspan x="72" dy="26">would have to be <tspan fill="#fde68a">1</tspan>. Which line last wrote <tspan fill="#c4b5fd">`hi`</tspan>, and what did you</tspan>
+      <tspan x="72" dy="26">assume about the range it was allowed to take?</tspan>
+    </text>
+
+    <path d="M72 811H255M825 811H1008" stroke="#2c3b53" stroke-dasharray="3 5"/>
+    <text x="540" y="816" text-anchor="middle" fill="#9aaec9" font-size="15" font-style="italic">… the student edits the file in their editor …</text>
+
+    <rect x="44" y="839" width="992" height="257" rx="14" fill="url(#success)" stroke="#2c5a50" filter="url(#shadow)"/>
+    <rect x="44" y="861" width="3" height="213" rx="1.5" fill="#5eead4"/>
+    <text x="72" y="876" font-size="19"><tspan fill="#67e8f9" font-weight="700">dmas</tspan><tspan fill="#6b829f"> ▸ </tspan><tspan fill="#f1f5ff">retry</tspan></text>
+    <rect x="72" y="897" width="148" height="30" rx="7" fill="#163d32" stroke="#327458"/>
+    <text x="146" y="917" text-anchor="middle" fill="#a7f3c4" font-size="14" font-weight="700" letter-spacing="0.7">NO FINDING</text>
+    <text x="239" y="917" font-size="17"><tspan fill="#a7f3c4" font-weight="700">87/87</tspan><tspan fill="#c0d6d2"> inputs pass; no structural warning sign either</tspan></text>
+    <circle cx="990" cy="912" r="11" fill="#194737"/>
+    <path d="m985 912 3 3 6-7" stroke="#86efac" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M72 943H1008" stroke="#28483f"/>
+    <text x="72" y="971" fill="#cfe7df" font-size="16" font-weight="600">Attempt <tspan fill="#a7f3c4">2</tspan> vs <tspan fill="#a7bad4">1</tspan></text>
+    <text x="1008" y="971" text-anchor="end" fill="#75b5a1" font-size="12" letter-spacing="1.3">REASSESSMENT</text>
+    <text x="72" y="1003" font-size="17"><tspan fill="#86efac">resolved</tspan><tspan x="204" fill="#d8e3f3">Mixed interval conventions</tspan></text>
+    <text x="72" y="1034" font-size="17"><tspan fill="#93c5fd">checks</tspan><tspan x="204" fill="#a7bad4">5/7 inputs pass</tspan><tspan fill="#6b829f"> → </tspan><tspan fill="#a7f3c4">87/87 inputs pass</tspan></text>
+    <text x="72" y="1065" font-size="17"><tspan fill="#c4b5fd">mastery</tspan><tspan x="204" fill="#d8e3f3">Loop invariants</tspan><tspan fill="#a7bad4">  0.39</tspan><tspan fill="#5eead4"> ↑ </tspan><tspan fill="#a7f3c4" font-weight="700">0.72</tspan></text>
+    <rect x="824" y="1054" width="170" height="8" rx="4" fill="#213e3e"/>
+    <rect x="824" y="1054" width="122.4" height="8" rx="4" fill="url(#mastery)"/>
+    <path d="M890.3 1052V1064" stroke="#d8fff3" stroke-opacity="0.7" stroke-width="2"/>
+  </g>
+</svg>

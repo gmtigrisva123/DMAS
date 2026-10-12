@@ -149,7 +149,7 @@ def shrink(
 class CounterexampleSearch:
     """Differential testing of a submission against the reference."""
 
-    def __init__(self, runner: Optional[GuardedRunner] = None):
+    def __init__(self, runner: Optional[GuardedRunner] = None) -> None:
         self.runner = runner or GuardedRunner()
 
     def search(

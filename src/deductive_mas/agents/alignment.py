@@ -35,7 +35,7 @@ class KnowledgeGraphAlignmentAgent(Agent):
         config: Optional[Config] = None,
         graph: Optional[KnowledgeGraph] = None,
         tracker: Optional[MasteryTracker] = None,
-    ):
+    ) -> None:
         self.config = config or Config()
         self.graph = graph or knowledge_graph()
         self.tracker = tracker or MasteryTracker(self.graph, self.config.knowledge)

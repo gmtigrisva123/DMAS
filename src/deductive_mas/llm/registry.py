@@ -51,7 +51,7 @@ class Reasoner:
         backend: Optional[LLMBackend] = None,
         *,
         cache: Optional[ResponseCache] = None,
-    ):
+    ) -> None:
         self.config = config or LLMConfig()
         self.backend = backend or make_backend(self.config)
         self.fallback = OfflineReasoner()

@@ -13,7 +13,26 @@ import shutil
 import sys
 import unicodedata
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Protocol as _Protocol
+
+
+class _TTYStream(_Protocol):
+    def isatty(self) -> bool:
+        ...
+
+
+class _InputStream(_Protocol):
+    def readline(self) -> str:
+        ...
+
+
+class _OutputStream(_Protocol):
+    def write(self, text: str, /) -> object:
+        ...
+
+    def flush(self) -> object:
+        ...
+
 
 _ESCAPE_RE = re.compile(r"\x1b\[[0-9;]*m|\x1b\]8;;[^\x07]*\x07")
 
@@ -21,7 +40,7 @@ RESET = "\x1b[0m"
 
 
 # capability detection
-def supports_colour(mode: str = "auto", stream=None) -> bool:
+def supports_colour(mode: str = "auto", stream: Optional[_TTYStream] = None) -> bool:
     """Should we emit escape codes at all."""
     if mode == "never":
         return False
@@ -107,7 +126,7 @@ UNDERLINE = "\x1b[4m"
 class Style:
     """Renders styled text, or plain text when colour is off."""
 
-    def __init__(self, mode: str = "auto", stream=None):
+    def __init__(self, mode: str = "auto", stream: Optional[_TTYStream] = None) -> None:
         self.enabled = supports_colour(mode, stream)
         self.truecolour = self.enabled and supports_truecolour()
         self.width = terminal_width()
@@ -131,25 +150,25 @@ class Style:
         return f"{prefix}{text}{RESET}" if prefix else text
 
     # shortcuts
-    def primary(self, text: str, **kwargs) -> str:
+    def primary(self, text: str, **kwargs: bool) -> str:
         return self.paint(text, "primary", **kwargs)
 
-    def accent(self, text: str, **kwargs) -> str:
+    def accent(self, text: str, **kwargs: bool) -> str:
         return self.paint(text, "accent", **kwargs)
 
-    def success(self, text: str, **kwargs) -> str:
+    def success(self, text: str, **kwargs: bool) -> str:
         return self.paint(text, "success", **kwargs)
 
-    def warning(self, text: str, **kwargs) -> str:
+    def warning(self, text: str, **kwargs: bool) -> str:
         return self.paint(text, "warning", **kwargs)
 
-    def danger(self, text: str, **kwargs) -> str:
+    def danger(self, text: str, **kwargs: bool) -> str:
         return self.paint(text, "danger", **kwargs)
 
-    def muted(self, text: str, **kwargs) -> str:
+    def muted(self, text: str, **kwargs: bool) -> str:
         return self.paint(text, "muted", **kwargs)
 
-    def code(self, text: str, **kwargs) -> str:
+    def code(self, text: str, **kwargs: bool) -> str:
         return self.paint(text, "code", **kwargs)
 
     def heading(self, text: str) -> str:

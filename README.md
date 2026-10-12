@@ -1,15 +1,11 @@
-<div align="center">
+<p align="center">
+  <img src="images/DMAS_Logo.png" width="700" alt="AutoResearchClaw Logo">
+</p>
 
-# DMAS
+<h2 align="center"><b>Diagnosing the belief, not the bug</b></h2>
 
 **A deductive multi-agent system for automated cognitive misconception
 diagnosis and Socratic intervention in advanced computer science education**
-
-*Diagnosing the belief, not the bug.*
-
-`Python 3.9+` · zero dependencies · `MIT`
-
-</div>
 
 ---
 
@@ -39,7 +35,14 @@ a time** — a ladder printed all at once is just a worked answer delivered slow
 — and it remembers you between attempts, so after you edit the file it can
 answer the question that matters: was the belief repaired, or the symptom patched?
 
-```
+<p align="center">
+  <img src="images/session-terminal.svg" width="1080" alt="DMAS terminal session: diagnosis, two Socratic hints, and a successful retry with mastery rising from 0.39 to 0.72.">
+</p>
+
+<details>
+<summary>Session transcript · plain text</summary>
+
+```text
 dmas ▸ load attempt.py
 
   loaded  attempt.py  ·  10 lines  ·  task  lower_bound
@@ -47,15 +50,19 @@ dmas ▸ load attempt.py
    DIAGNOSIS   Mixed interval conventions  ·  0.77  ·  L4
   5/7 inputs pass
 
+______________________________________________________________
+
 dmas ▸ hint
 
-  hint 1/3  ·  orienting  ·  Loop invariants
+   hint 1/3  ·  orienting  ·  Loop invariants
 
-  Take the input ([0], 1) and step through your own function by hand, writing
-  down the values at line 4 each time you reach it. Stop at the first moment a
-  value surprises you.
+   Take the input ([0], 1) and step through your own function by hand, writing
+   down the values at line 4 each time you reach it. Stop at the first moment a
+   value surprises you.
 
-  sit with that one first — `hint` again when you are stuck
+   sit with that one first — `hint` again when you are stuck
+
+______________________________________________________________
 
 dmas ▸ hint
 
@@ -66,6 +73,8 @@ dmas ▸ hint
   range it was allowed to take?
 
       … the student edits the file in their editor …
+
+______________________________________________________________
 
 dmas ▸ retry
 
@@ -78,8 +87,17 @@ dmas ▸ retry
   mastery   Loop invariants  0.39 ↑ 0.72
 ```
 
+</details>
+
 A partial fix that makes things worse is reported just as plainly — `persists`,
 `new`, checks 5/7 → 0/7 — which is the honest thing and the useful thing.
+
+<p align="center">
+  <img src="images/session-commands.svg" width="1080" alt="DMAS session command reference: load, hint, challenge, why, code, report, retry, mastery, progress, concept, problems, and problem.">
+</p>
+
+<details>
+<summary>Command reference · copyable text</summary>
 
 | command | |
 |---|---|
@@ -91,6 +109,8 @@ A partial fix that makes things worse is reported just as plainly — `persists`
 | `mastery` · `progress` | what the session believes you have mastered; every attempt so far |
 | `concept [<id>]` · `problems` · `problem <id>` | explore the curriculum; pin a task |
 
+</details>
+
 Tab completion and history work in a terminal; commands can also be piped in,
 which is how the tests drive it.
 
@@ -100,7 +120,14 @@ which is how the tests drive it.
 
 Given a flawed submission, the system produces this:
 
-```
+<p align="center">
+  <img src="images/diagnosis-terminal.svg" width="1080" alt="DMAS report: cognitive diagnosis with supporting evidence, a prerequisite learning path, and three Socratic questions with answer leakage of 0.00.">
+</p>
+
+<details>
+<summary>Report transcript · plain text</summary>
+
+```text
 ── Cognitive diagnosis ──────────────────────────────────────────────────────
 
   misconception                    name                        belief
@@ -139,6 +166,8 @@ Given a flawed submission, the system produces this:
 
   answer leakage  0.00  ·  grounding  0.55
 ```
+
+</details>
 
 Note what is *not* there: the fix. `hi = len(a)` never appears, and the gate that
 guarantees that is a mechanism, not an instruction — see below.
@@ -399,24 +428,41 @@ it.
 
 ## Layout
 
-```
+<p align="center">
+  <img src="images/project-layout.svg" width="1080" alt="DMAS repository layout: the checkout CLI, shared source modules, source packages, tests, experiments, and docs.">
+</p>
+
+<details>
+<summary>Repository layout · plain text</summary>
+
+```text
 dmas                                  run the CLI from a checkout, no install
 src/deductive_mas/
   domain.py  config.py  pipeline.py     shared vocabulary, settings, composition
+  
   util/          determinism, tokenisation, linear algebra
+
   analysis/      CFG, dataflow, cost, tracing, alignment, shrinking, leakage
+
   knowledge/     ontology, misconception taxonomy, mastery, ZPD
+
   retrieval/     BM25, LSA, fusion, corpus, MA-RAG
+
   llm/           Claude, OpenAI-compatible endpoints, offline reasoner, caching
+
   agents/        the three agents, the gate, the orchestrator
+
   simulation/    RQ1 benchmark, RQ2 experiment + design analysis, RQ3 robustness,
                  gate benchmark and audit, external validation (Refactory)
   stats/         special functions, tests, effect sizes, power, agreement
-  ui/  cli/      terminal presentation, the dmas command, the interactive session
+  ui/            terminal user interface, the interactive UI
+  cli/           terminal presentation, the dmas command, the interactive session
 tests/           the test suite
 experiments/     result files, figure and number scripts, the live-run driver
 docs/
 ```
+
+</details>
 
 ## Licence
 

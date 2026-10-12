@@ -19,7 +19,7 @@ only demanded where a hallucination would do damage.
 import math
 import re
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
+from typing import Dict, Iterable, List, Mapping, Optional, Sequence, Tuple, Any
 
 from ..config import RetrievalConfig
 from ..util.linalg import cosine
@@ -141,7 +141,7 @@ class GroundedContext:
 class Retriever:
     """Runs the plan on the hybrid index and fuses the per query results."""
 
-    def __init__(self, index: HybridIndex, config: Optional[RetrievalConfig] = None):
+    def __init__(self, index: HybridIndex, config: Optional[RetrievalConfig] = None) -> None:
         self.index = index
         self.config = config or index.config
 
@@ -249,7 +249,7 @@ class GroundingReport:
 class Verifier:
     """Scores generated text against the retrieved evidence."""
 
-    def __init__(self, index: HybridIndex, config: Optional[RetrievalConfig] = None):
+    def __init__(self, index: HybridIndex, config: Optional[RetrievalConfig] = None) -> None:
         self.index = index
         self.config = config or index.config
 
@@ -357,14 +357,14 @@ class Verifier:
 class MultiAgentRAG:
     """Planner + Retriever + Verifier in one object."""
 
-    def __init__(self, index: Optional[HybridIndex] = None, config: Optional[RetrievalConfig] = None):
+    def __init__(self, index: Optional[HybridIndex] = None, config: Optional[RetrievalConfig] = None) -> None:
         self.index = index or HybridIndex(config=config)
         self.config = config or self.index.config
         self.planner = Planner()
         self.retriever = Retriever(self.index, self.config)
         self.verifier = Verifier(self.index, self.config)
 
-    def ground(self, **plan_kwargs) -> GroundedContext:
+    def ground(self, **plan_kwargs: Any) -> GroundedContext:
         return self.retriever.retrieve(self.planner.plan(**plan_kwargs))
 
     def verify(self, text: str, context: GroundedContext) -> GroundingReport:

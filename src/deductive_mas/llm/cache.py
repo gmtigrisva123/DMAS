@@ -18,7 +18,7 @@ from .base import Completion, Task
 class ResponseCache:
     """Flat directory of json blobs keyed by a 64 bit hash."""
 
-    def __init__(self, directory: Optional[str], *, enabled: bool = True):
+    def __init__(self, directory: Optional[str], *, enabled: bool = True) -> None:
         self.enabled = bool(enabled and directory)
         self.directory = Path(directory) if directory else None
         if self.enabled and self.directory is not None:
@@ -46,7 +46,7 @@ class ResponseCache:
         completion.cached = True
         return completion
 
-    def put(self, key: str, completion: Completion):
+    def put(self, key: str, completion: Completion) -> None:
         if not self.enabled:
             return
         path = self._path(key)
