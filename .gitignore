@@ -46,3 +46,7 @@ artifacts/
 
 
 agent/
+
+.agents/skills/
+.claude/skills/
+.kilo/
