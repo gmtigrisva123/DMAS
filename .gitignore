@@ -43,3 +43,6 @@ artifacts/
 
 # NOT ignored on purpose: experiments/results, experiments/live_cache and
 # experiments/figures are the paper's evidence and travel with the code
+
+
+agent/

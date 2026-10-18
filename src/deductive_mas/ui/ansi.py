@@ -13,7 +13,7 @@ import shutil
 import sys
 import unicodedata
 from dataclasses import dataclass
-from typing import Optional, Protocol as _Protocol
+from typing import Optional, Protocol as _Protocol, Sequence
 
 
 class _TTYStream(_Protocol):
@@ -105,17 +105,36 @@ class Colour:
         return f"\x1b[48;5;{self.xterm}m"
 
 
-# palette that reads on light and dark terminals
+# The palette is the project's own, lifted from images/DMAS_Logo.png and the
+# terminal mock-ups in images/*.svg, and it carries the same meaning there as
+# here: amber is evidence, blue is the prerequisite it points at, mint is the
+# question the learner gets back. Violet is a rung of the ladder.
 PALETTE = {
-    "primary":  Colour((94, 176, 214), 74),    # blue: structure, headings
-    "accent":   Colour((186, 148, 232), 141),  # violet: knowledge layer
-    "success":  Colour((126, 191, 121), 108),  # green: ok, passing
-    "warning":  Colour((222, 179, 92), 179),   # amber: contested, degraded
-    "danger":   Colour((219, 108, 112), 167),  # red: critical
-    "muted":    Colour((128, 135, 145), 245),  # grey: secondary text
-    "text":     Colour((214, 218, 224), 252),
-    "code":     Colour((162, 194, 155), 151),  # source listings
+    "amber":    Colour((251, 191, 36), 214),   # evidence, the diagnosis
+    "sky":      Colour((56, 189, 248), 39),    # the knowledge graph
+    "teal":     Colour((94, 234, 212), 86),    # the question, a repaired belief
+    "violet":   Colour((167, 139, 250), 141),  # one rung of the ladder
+    "cyan":     Colour((103, 232, 249), 87),   # the prompt
+    "mint":     Colour((153, 246, 228), 122),
+    "blue":     Colour((147, 197, 253), 111),
+    "lilac":    Colour((196, 181, 253), 183),  # file names, source listings
+    "green":    Colour((134, 239, 172), 114),
+    "red":      Colour((255, 107, 122), 210),
+    "text":     Colour((216, 227, 243), 189),
+    "muted":    Colour((141, 165, 197), 110),
+    "dim":      Colour((77, 102, 136), 60),
 }
+
+# the names the reports were written against, kept so meaning stays one word
+PALETTE["primary"] = PALETTE["sky"]
+PALETTE["accent"] = PALETTE["violet"]
+PALETTE["success"] = PALETTE["green"]
+PALETTE["warning"] = PALETTE["amber"]
+PALETTE["danger"] = PALETTE["red"]
+PALETTE["code"] = PALETTE["lilac"]
+
+# the wordmark runs through these left to right, the way the logo does
+LOGO_STOPS = ((45, 212, 191), (56, 189, 248), (129, 173, 255), (251, 191, 36))
 
 BOLD = "\x1b[1m"
 DIM = "\x1b[2m"
@@ -148,6 +167,49 @@ class Style:
         if underline:
             prefix += UNDERLINE
         return f"{prefix}{text}{RESET}" if prefix else text
+
+    # drawing
+    def rgb(self, r: int, g: int, b: int, *, background: bool = False) -> str:
+        """An escape for one exact colour, used by the gradient."""
+        if not self.enabled:
+            return ""
+        if self.truecolour:
+            return f"\x1b[{48 if background else 38};2;{r};{g};{b}m"
+        # the 6x6x6 cube is close enough for a wordmark on a 256 colour terminal
+        cube = [round(c / 255 * 5) for c in (r, g, b)]
+        return f"\x1b[{48 if background else 38};5;{16 + 36 * cube[0] + 6 * cube[1] + cube[2]}m"
+
+    def gradient(self, text: str, stops: Sequence = LOGO_STOPS, *, bold: bool = False) -> str:
+        """Run a colour ramp left to right across the text.
+        Blanks are skipped so a drawn letter keeps the ramp of its own column
+        rather than of the gap before it.
+        """
+        if not self.enabled or not text:
+            return text
+        span = max(1, len(text) - 1)
+        out = []
+        for index, char in enumerate(text):
+            if char == " ":
+                out.append(char)
+                continue
+            position = index / span * (len(stops) - 1)
+            low = min(int(position), len(stops) - 2)
+            ratio = position - low
+            channels = [
+                round(stops[low][c] + (stops[low + 1][c] - stops[low][c]) * ratio)
+                for c in range(3)
+            ]
+            out.append(self.rgb(*channels) + (BOLD if bold else "") + char)
+        return "".join(out) + RESET
+
+    def pill(self, text: str, colour: str) -> str:
+        """A label on its own ground, the way the mock-ups badge a verdict."""
+        label = f" {text} "
+        if not self.enabled:
+            return label
+        shade = PALETTE[colour].rgb
+        dark = tuple(round(c * 0.22) for c in shade)
+        return self.rgb(*dark, background=True) + PALETTE[colour].fg(self.truecolour) + BOLD + label + RESET
 
     # shortcuts
     def primary(self, text: str, **kwargs: bool) -> str:

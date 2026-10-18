@@ -171,7 +171,7 @@ class Experiment:
 
         for profile, arm_index in zip(cohort, assignment):
             tutor = arms[arm_index]
-            local = random.Random(seed ^ stable_stable_hash(profile.sid) & 0xFFFFFFFF)
+            local = random.Random(seed ^ stable_hash(profile.sid) & 0xFFFFFFFF)
             before = _mean_mastery(profile)
             transfer_retention = 1.0
             turns = 0
