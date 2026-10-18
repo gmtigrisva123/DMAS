@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Tuple
 
 from ..util.text import truncate, wrap
-from .ansi import Style, display_width
+from .ansi import BOLD, PALETTE, RESET, Style, display_width
 
 # box drawing chars: rounded corners for panels, light lines for tables
 TL, TR, BL, BR = "╭", "╮", "╰", "╯"
@@ -17,6 +17,13 @@ BRANCH, LAST, PIPE, SPACE = "├─ ", "╰─ ", "│  ", "   "
 
 BLOCKS = " ▁▂▃▄▅▆▇█"
 BAR_FULL, BAR_EMPTY = "█", "░"
+
+# the mock-ups in images/ card every section behind a 3px coloured bar; in a
+# terminal that is one column of ▌, and the colour says which agent is talking
+GUTTER = "▌"
+DOT = "●"
+CARET = "❯"
+CELL_FULL, CELL_EMPTY = "▰", "▱"
 
 
 def pad(text: str, width: int, align: str = "left") -> str:
@@ -32,15 +39,18 @@ def pad(text: str, width: int, align: str = "left") -> str:
     return text + " " * deficit
 
 
-def rule(style: Style, label: str = "", width: Optional[int] = None) -> str:
-    """Horizontal rule with an optional label."""
+def rule(style: Style, label: str = "", width: Optional[int] = None, *,
+         colour: str = "primary") -> str:
+    """Horizontal rule with an optional label. The colour names the stage, so
+    a long report reads in the same three colours the session does.
+    """
     width = width or style.width
     if not label:
-        return style.muted(H * width)
-    prefix = style.muted(H * 2 + " ")
-    text = style.heading(label)
+        return style.paint(H * width, "dim")
+    prefix = style.paint(H * 2 + " ", colour)
+    text = style.paint(label, colour, bold=True)
     used = 3 + display_width(label) + 1
-    return prefix + text + " " + style.muted(H * max(0, width - used))
+    return prefix + text + " " + style.paint(H * max(0, width - used), "dim")
 
 
 def banner(style: Style, title: str, subtitle: str = "", width: Optional[int] = None) -> List[str]:
@@ -201,12 +211,19 @@ def key_values(style: Style, pairs: Sequence[Tuple[str, str]], *, indent: str = 
     ]
 
 
+# the mastery bar in images/session-terminal.svg fills teal into green
+MASTERY_STOPS = ((45, 212, 191), (134, 239, 172))
+
+
 def bar(style: Style, value: float, *, width: int = 18, colour: Optional[str] = None) -> str:
-    """Proportional bar for a value in [0, 1]."""
+    """Proportional bar for a value in [0, 1]. Left unqualified it runs the
+    mastery ramp, which reads as one quantity rather than three bands.
+    """
     value = max(0.0, min(1.0, value))
     filled = int(round(value * width))
-    hue = colour or ("success" if value >= 0.66 else "warning" if value >= 0.4 else "muted")
-    return style.paint(BAR_FULL * filled, hue) + style.muted(BAR_EMPTY * (width - filled))
+    full = (style.paint(BAR_FULL * filled, colour) if colour
+            else style.gradient(BAR_FULL * filled, MASTERY_STOPS))
+    return full + style.paint(BAR_EMPTY * (width - filled), "dim")
 
 
 def sparkline(style: Style, values: Sequence[float], *, colour: str = "primary") -> str:
@@ -341,3 +358,69 @@ def paragraph(style: Style, text: str, *, indent: str = "  ", width: Optional[in
               colour: Optional[str] = None) -> List[str]:
     width = (width or style.width) - len(indent)
     return [indent + (style.paint(line, colour) if colour else line) for line in wrap(text, width)]
+
+
+def block(style: Style, lines: Sequence[str], *, colour: str = "sky",
+          indent: str = "  ") -> List[str]:
+    """Lines sharing one coloured gutter: the terminal form of the cards in
+    images/*.svg. The colour is the meaning, so a reader can tell evidence
+    from a prerequisite from a question without reading a word.
+    """
+    bar = style.paint(GUTTER, colour)
+    return [indent + bar + " " + line for line in lines]
+
+
+def lede(style: Style, label: str, text: str, *, colour: str = "amber") -> str:
+    """A badged headline: the pill, then what it is about."""
+    return style.pill(label, colour) + "  " + style.paint(text, "text", bold=True)
+
+
+def segments(style: Style, done: int, total: int, *, colour: str = "amber",
+             cap: int = 24) -> str:
+    """The check summary as a row of cells rather than a fraction."""
+    if total <= 0:
+        return ""
+    cells = min(total, cap)
+    filled = int(round(done / total * cells))
+    return (style.paint(CELL_FULL * filled, colour)
+            + style.paint(CELL_EMPTY * (cells - filled), "dim"))
+
+
+def brand_box(style: Style, headline: str, body: Sequence[str],
+              width: Optional[int] = None) -> List[str]:
+    """A titled box for a standing report such as /status."""
+    lines = [style.gradient(headline, bold=True), ""]
+    lines += ["  " + line for line in body]
+    return panel(style, lines, width=width or style.width, colour="dim")
+
+
+def prompt_string(style: Style, label: str = "dmas") -> str:
+    """The prompt, drawn the way images/session-terminal.svg draws it: the
+    gutter, the tool's name, a caret.
+
+    Colour is only safe under GNU readline, which is told with \x01/\x02
+    which bytes take no columns. libedit (the macOS build) ignores those
+    markers and reorders the escapes, so there the prompt is plain and
+    correctly aligned rather than coloured and one character adrift.
+    """
+    plain = f"  {GUTTER} {label} {CARET} "
+    if not style.enabled:
+        return plain
+    try:
+        import readline
+    except ImportError:
+        return plain
+    if getattr(readline, "backend", "") != "readline":
+        return plain
+
+    def tint(text: str, colour: str, bold: bool = False) -> str:
+        opening = PALETTE[colour].fg(style.truecolour) + (BOLD if bold else "")
+        return "\x01" + opening + "\x02" + text + "\x01" + RESET + "\x02"
+
+    return ("  " + tint(GUTTER, "cyan") + " " + tint(label, "cyan", bold=True)
+            + " " + tint(CARET, "dim") + " ")
+
+
+def footnote(style: Style, text: str) -> str:
+    """The dim line under the input box."""
+    return "  " + style.muted(text)

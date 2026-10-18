@@ -24,8 +24,11 @@ from .widgets import (
     banner,
     bar,
     bullet,
+    block,
     histogram,
     key_values,
+    lede,
+    segments,
     panel,
     paragraph,
     rule,
@@ -58,24 +61,24 @@ def render_tutoring_result(
         out += render_evidence_scene(style, result)
         out.append("")
 
-    out.append(rule(style, "Cognitive diagnosis"))
+    out.append(rule(style, "Cognitive diagnosis", colour="amber"))
     out.append("")
     out += render_diagnosis(style, diagnosis, show_evidence=show_evidence)
     out.append("")
 
-    out.append(rule(style, "Knowledge-graph alignment"))
+    out.append(rule(style, "Knowledge-graph alignment", colour="sky"))
     out.append("")
     out += render_alignment(style, result.alignment, graph)
     out.append("")
 
-    out.append(rule(style, "Cognitive intervention"))
+    out.append(rule(style, "Cognitive intervention", colour="teal"))
     out.append("")
     out += render_intervention(
         style, result.intervention, graph, root_cause=result.alignment.root_cause
     )
     out.append("")
 
-    out.append(rule(style, "Provenance"))
+    out.append(rule(style, "Provenance", colour="dim"))
     out.append("")
     out += render_telemetry(style, result)
     return out
@@ -120,7 +123,7 @@ def render_evidence_scene(style: Style, result: TutoringResult) -> List[str]:
                     f"minimised by delta debugging in {counterexample.shrink_steps} reduction step(s)"
                 )
             )
-    return panel(style, body, title="Evidence", colour="muted")
+    return panel(style, body, title="Evidence", colour="amber")
 
 
 def render_diagnosis(style: Style, diagnosis: Diagnosis, *, show_evidence: bool = True) -> List[str]:
@@ -578,23 +581,18 @@ def render_hint(style: Style, hint: Hint, *, index: int, total: int, graph: Know
     Rungs are shown one at a time on purpose, printing the whole ladder is
     just a slow worked answer.
     """
-    out = [
-        "  "
-        + style.paint(f"hint {index}/{total}", "primary", bold=True)
-        + style.muted(f"  ·  {hint.kind}")
-        + (
-            style.muted(f"  ·  {graph.name(hint.concept_id)}")
-            if hint.concept_id and hint.concept_id in graph
-            else ""
-        )
-    ]
-    out.append("")
-    out += paragraph(style, hint.text, indent="  ")
+    head = lede(style, f"HINT {index}/{total}", str(hint.kind), colour="violet")
+    if hint.concept_id and hint.concept_id in graph:
+        head += style.muted("  ·  ") + style.paint(graph.name(hint.concept_id), "accent")
+    body = [head, ""]
+    body += [line[2:] for line in paragraph(style, hint.text, indent="  ",
+                                            width=style.width - 4)]
+    out = block(style, body, colour="violet")
     out.append("")
     if index < total:
-        out.append("  " + style.muted("sit with that one first — `hint` again when you are stuck"))
+        out.append("  " + style.muted("sit with that one first — /hint again when you are stuck"))
     else:
-        out.append("  " + style.muted("that is the last rung — try `challenge`, then `retry` when you have edited"))
+        out.append("  " + style.muted("that is the last rung — try /challenge, then /retry when you have edited"))
     return out
 
 
@@ -603,31 +601,46 @@ def render_verdict(style: Style, result: TutoringResult) -> List[str]:
     diagnosis = result.diagnosis
     checks = diagnosis.check_summary
     if not diagnosis.hits:
-        return [
-            "  "
-            + badge(style, "NO FINDING", "success")
-            + "  "
-            + style.muted(
-                f"{checks}; no structural warning sign either"
-                if diagnosis.checks_total
-                else "no structural warning sign"
+        detail = style.muted(
+            f"{checks}; no structural warning sign either"
+            if diagnosis.checks_total
+            else "no structural warning sign"
+        )
+        if diagnosis.checks_total:
+            detail = (
+                segments(style, diagnosis.checks_passed, diagnosis.checks_total, colour="teal")
+                + "  " + detail
             )
-        ]
+        return block(
+            style,
+            [lede(style, "NO FINDING", "every input agrees with the reference",
+                  colour="teal"), detail],
+            colour="teal",
+        )
     primary = diagnosis.primary
     entry = MISCONCEPTIONS.get(primary.misconception_id)
     label = "PROVISIONAL" if diagnosis.inconclusive else "DIAGNOSIS"
     colour = "warning" if diagnosis.inconclusive else "primary"
-    out = [
-        "  "
-        + badge(style, label, colour)
-        + "  "
-        + style.paint(entry.name if entry else primary.misconception_id, "text", bold=True)
-        + style.muted(f"  ·  {primary.belief:.2f}")
-        + (style.muted(f"  ·  {primary.span}") if primary.span else "")
-    ]
+    detail = bar(style, primary.belief, width=10, colour=colour) + style.muted(
+        f" {primary.belief:.2f}"
+    )
+    if primary.span:
+        detail += style.muted(f"  ·  {primary.span}")
     if diagnosis.checks_total:
-        out.append("  " + style.muted(checks))
-    return out
+        detail += (
+            style.muted("  ·  ")
+            + segments(style, diagnosis.checks_passed, diagnosis.checks_total, colour=colour)
+            + style.muted(f" {checks}")
+        )
+    return block(
+        style,
+        [
+            lede(style, label, entry.name if entry else primary.misconception_id,
+                 colour=colour),
+            detail,
+        ],
+        colour=colour,
+    )
 
 
 def render_attempt_diff(
@@ -646,19 +659,19 @@ def render_attempt_diff(
     out: List[str] = []
     for mid in sorted(before - after):
         entry = MISCONCEPTIONS.get(mid)
-        out.append(
-            "  " + style.success("resolved  ") + style.paint(entry.name if entry else mid, "text")
-        )
+        out += block(style, [style.paint("resolved  ", "teal")
+                             + style.paint(entry.name if entry else mid, "text")],
+                     colour="teal")
     for mid in sorted(before & after):
         entry = MISCONCEPTIONS.get(mid)
-        out.append(
-            "  " + style.warning("persists  ") + style.paint(entry.name if entry else mid, "text")
-        )
+        out += block(style, [style.paint("persists  ", "amber")
+                             + style.paint(entry.name if entry else mid, "text")],
+                     colour="amber")
     for mid in sorted(after - before):
         entry = MISCONCEPTIONS.get(mid)
-        out.append(
-            "  " + style.danger("new       ") + style.paint(entry.name if entry else mid, "text")
-        )
+        out += block(style, [style.paint("new       ", "red")
+                             + style.paint(entry.name if entry else mid, "text")],
+                     colour="red")
     if not out:
         out.append("  " + style.muted("no change in the findings"))
 
