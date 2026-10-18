@@ -151,7 +151,7 @@ class TestLoading:
         assert session.state.problem.pid == "freeform"
         assert "structural findings only" in out
         assert "List used as a queue" in out or "graph.list-as-queue" in out
-        assert "hint 1/" in out
+        assert "HINT 1/" in out
 
     def test_freeform_problem_has_no_oracle(self) -> None:
         spec = freeform_problem("solve")
@@ -161,16 +161,16 @@ class TestLoading:
 class TestSocraticLadder:
     def test_hints_are_revealed_one_rung_at_a_time(self, config: Config, attempt: Path) -> None:
         _, out, session = drive(config, f"load {attempt}", "hint", "quit")
-        assert "hint 1/3" in out and "hint 2/3" not in out
+        assert "HINT 1/3" in out and "HINT 2/3" not in out
         assert session.state.revealed == 1
 
     def test_the_ladder_runs_out(self, config: Config, attempt: Path) -> None:
         _, out, _ = drive(config, f"load {attempt}", "hint", "hint", "hint", "hint", "quit")
-        assert "hint 3/3" in out and "last rung" in out
+        assert "HINT 3/3" in out and "last rung" in out
 
     def test_the_diagnosis_never_prints_the_ladder_unasked(self, config: Config, attempt: Path) -> None:
         _, out, _ = drive(config, f"load {attempt}", "quit")
-        assert "hint 1/" not in out and "Take the input" not in out
+        assert "HINT 1/" not in out and "Take the input" not in out
 
     def test_the_challenge_asks_for_a_prediction(self, config: Config, attempt: Path) -> None:
         _, out, session = drive(config, f"load {attempt}", "challenge", "quit")
@@ -301,7 +301,7 @@ class TestEntryPoint:
         ])
         out = capsys.readouterr().out
         assert code == 0
-        assert "DIAGNOSIS" in out and "hint 1/3" in out and "session ended" in out
+        assert "DIAGNOSIS" in out and "HINT 1/3" in out and "session ended" in out
 
     def test_session_subcommand_can_pin_the_task(self, attempt: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
         monkeypatch.setattr("sys.stdin", io.StringIO("quit\n"))

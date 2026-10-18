@@ -6,7 +6,7 @@ request. It also has continuity: mastery carries across attempts, so after
 the learner edits the file and runs retry we can answer the question that
 matters, was the belief repaired or just the symptom?
 
-    dmas session                    start empty, then `load path/to/attempt.py`
+    dmas session                    start empty, then /load path/to/attempt.py
     dmas session --file attempt.py  load and diagnose right away
 """
 
@@ -41,20 +41,28 @@ from ..ui.render import (
     render_progress,
     render_verdict,
 )
+from ..ui.brand import agent_row, wordmark
+from ..ui.spinner import Spinner
+from ..util.text import truncate
 from ..ui.widgets import (
+    CARET,
     Column,
-    banner,
+    GUTTER,
+    block,
+    brand_box,
     bullet,
+    footnote,
     inline,
-    key_values,
+    lede,
+    pad,
     panel,
     paragraph,
+    prompt_string,
     rule,
     table,
 )
 from ..version import CODENAME, __version__
 
-PROMPT = "dmas ▸ "
 MAX_SOURCE_BYTES = 256 * 1024
 
 
@@ -65,6 +73,22 @@ def _short_path(path: Path) -> str:
         return str(resolved.relative_to(Path.cwd()))
     except ValueError:
         pass
+    try:
+        return "~/" + str(resolved.relative_to(Path.home()))
+    except ValueError:
+        return str(resolved)
+
+
+def _spaced(text: str) -> str:
+    """Letter-spaced label, the way the mock-ups set a screen heading."""
+    return " ".join(text)
+
+
+def _home_path(path: Path) -> str:
+    """Absolute path shortened under ~. _short_path would call the working
+    directory "." which is useless in a banner.
+    """
+    resolved = path.resolve()
     try:
         return "~/" + str(resolved.relative_to(Path.home()))
     except ValueError:
@@ -168,7 +192,10 @@ class TutorSession:
         self.emit(paragraph(self.style, message, indent="  ", colour=colour))
 
     def problem_error(self, message: str) -> None:
-        self.emit("  " + self.style.danger("!  ") + message)
+        # a red dot, the same shape as every other step, is enough: a banner
+        # for a mistyped command reads like the session itself broke
+        self.blank()
+        self.emit(block(self.style, [self.style.paint(message, "red")], colour="red"))
 
     # commands
     def _register(self) -> None:
@@ -201,6 +228,10 @@ class TutorSession:
                     "edit", TutorSession.cmd_edit),
             Command("reset", (), "forget the mastery estimate and history",
                     "reset", TutorSession.cmd_reset),
+            Command("status", ("info",), "version, reasoning backend and where you are",
+                    "status", TutorSession.cmd_status),
+            Command("clear", ("cls",), "clear the screen",
+                    "clear", TutorSession.cmd_clear),
             Command("help", ("?",), "list the commands",
                     "help [<command>]", TutorSession.cmd_help),
             Command("quit", ("exit", "q"), "leave the session",
@@ -225,11 +256,11 @@ class TutorSession:
                 line = self._read()
             except (EOFError, KeyboardInterrupt):
                 self.blank()
-                self.emit("  " + self.style.muted("session ended"))
+                self.emit(footnote(self.style, "session ended"))
                 return 0
             if line is None:
                 self.blank()
-                self.emit("  " + self.style.muted("session ended"))
+                self.emit(footnote(self.style, "session ended"))
                 return 0
             if not self.dispatch(line):
                 return 0
@@ -237,14 +268,16 @@ class TutorSession:
     def _read(self) -> Optional[str]:
         interactive = getattr(self.input, "isatty", lambda: False)()
         if interactive:
-            return input(self.style.paint(PROMPT, "primary", bold=True))
+            self.blank()
+            return input(prompt_string(self.style))
         line = self.input.readline()
         if not line:
             return None
         text = line.rstrip("\n")
         if text.strip():
-            # echo piped commands so a transcript reads like a conversation
-            self.emit(self.style.muted(PROMPT) + text)
+            # echo piped commands so a transcript reads like a conversation,
+            # in the same shape the interactive prompt has
+            self.emit(self.style.muted(f"  {GUTTER} dmas {CARET} ") + text)
         return text
 
     def dispatch(self, line: str) -> bool:
@@ -257,6 +290,12 @@ class TutorSession:
         except ValueError:
             parts = line.split()
         name = parts[0].lower()
+        # /load reads better than load and is what anyone who has used a chat
+        # client will type. A path is allowed to start with a slash too, so only
+        # a single bare word counts as a command
+        if name.startswith("/") and "/" not in name[1:]:
+            name = name[1:]
+            parts = [name] + parts[1:]
 
         command = self.commands.get(name)
         if command is None:
@@ -265,9 +304,9 @@ class TutorSession:
                 return self.cmd_load(["load"] + parts)
             near = self._suggest(name)
             self.problem_error(
-                f"unknown command {name!r}" + (f" — did you mean `{near}`?" if near else "")
+                f"unknown command {name!r}" + (f" — did you mean /{near}?" if near else "")
             )
-            self.emit("  " + self.style.muted("`help` lists everything"))
+            self.emit(footnote(self.style, "/help lists everything"))
             return True
         try:
             return command.handler(self, parts)
@@ -284,45 +323,57 @@ class TutorSession:
     def _suggest(self, name: str) -> Optional[str]:
         from ..util.text import normalised_levenshtein
 
+        # edit distance alone ties `hnit` between hint and edit and then picks
+        # alphabetically, which is how you get told to try /edit. A typo almost
+        # always keeps the first letter, so that breaks the tie
         ranked = sorted(
-            (normalised_levenshtein(name, candidate), candidate)
+            (
+                normalised_levenshtein(name, candidate),
+                0 if candidate[:1] == name[:1] else 1,
+                candidate,
+            )
             for candidate in self.commands
         )
-        return ranked[0][1] if ranked and ranked[0][0] <= 0.5 else None
+        return ranked[0][2] if ranked and ranked[0][0] <= 0.5 else None
 
     # screens
     def welcome(self) -> List[str]:
+        """The wordmark, the three agents, then the three things to try."""
         style = self.style
-        out = banner(
-            style,
-            f"{CODENAME} · interactive tutor",
-            f"v{__version__}  ·  reasoning backend: {self.orchestrator.reasoner.name}",
+        out = [""]
+        out += ["  " + line for line in wordmark(style)]
+        out.append("")
+        out.append("  " + agent_row(style, width=style.width - 2))
+        out.append("")
+        # the line has to fit: the working directory is the part that gives
+        out.append(
+            "  " + style.paint("interactive tutor", "text")
+            + style.paint("  ·  ", "dim") + style.muted(f"v{__version__}")
+            + style.paint("  ·  ", "dim") + style.muted(self.orchestrator.reasoner.name)
+            + style.paint("  ·  ", "dim")
+            + style.muted(truncate(_home_path(Path.cwd()),
+                                   max(12, style.width - 44)))
         )
         out.append("")
-        out += paragraph(
-            style,
-            "Load a Python file and I will find where your reasoning first left the correct "
-            "path, name the belief behind it, and ask the question that exposes it. I will "
-            "not show you the answer.",
-            indent="  ",
-        )
+        steps = [
+            ("/load <file>", "where your reasoning first left the correct path", "amber"),
+            ("/hint", "one rung at a time — nothing is spoiled", "violet"),
+            ("/retry", "after you edit: was the belief repaired, or just the symptom", "teal"),
+        ]
+        for command, gloss, colour in steps:
+            out += block(
+                style,
+                [style.paint(pad(command, 14), colour, bold=True) + style.muted(gloss)],
+                colour=colour,
+            )
         out.append("")
-        out += key_values(
-            style,
-            [
-                ("load <file>", style.muted("read a file and diagnose it")),
-                ("hint", style.muted("one rung at a time — think between them")),
-                ("retry", style.muted("after you edit, see whether the belief actually changed")),
-                ("help", style.muted("everything else")),
-            ],
-            indent="  ",
-        )
+        out.append(footnote(style, "/help for everything else  ·  tab completes  ·  ctrl-c to exit"))
         return out
 
     # handlers
     def cmd_load(self, parts: List[str]) -> bool:
         if len(parts) < 2:
-            self.problem_error("usage: load <path>")
+            self.problem_error("usage: /load <path>")
             return True
         path = Path(parts[1]).expanduser()
         if not path.exists():
@@ -349,24 +400,24 @@ class TutorSession:
         self.blank()
         shown = _short_path(path)
         lines = len(source.splitlines())
+        # the label is a step header, not data: keep it on one line
+        room = self.style.width - len("● Load()")
         self.emit(
-            inline(
+            block(
                 self.style,
                 [
-                    (f"loaded  {shown}", self.style.muted("loaded  ") + self.style.paint(shown, "text")),
-                    (f"{lines} lines", self.style.muted(f"{lines} lines")),
-                    (
-                        f"task  {self.state.problem.pid}",
-                        self.style.muted("task  ") + self.style.accent(self.state.problem.pid),
-                    ),
+                    lede(self.style, "LOADED", truncate(shown, room), colour="cyan"),
+                    self.style.muted(f"{lines} lines  ·  task ")
+                    + self.style.paint(self.state.problem.pid, "blue"),
                 ],
+                colour="cyan",
             )
         )
         return self._diagnose(reason="load")
 
     def cmd_retry(self, parts: List[str]) -> bool:
         if self.state.path is None:
-            self.problem_error("nothing loaded yet — `load <path>` first")
+            self.problem_error("nothing loaded yet — /load <path> first")
             return True
         try:
             source = self.state.path.read_text(encoding="utf-8")
@@ -376,8 +427,8 @@ class TutorSession:
         if source == self.state.source and self.state.attempts:
             self.blank()
             self.say(
-                "the file has not changed since the last attempt — edit it and run `retry` "
-                "again, or ask for another `hint`",
+                "the file has not changed since the last attempt — edit it and run /retry "
+                "again, or ask for another /hint",
                 colour="muted",
             )
             return True
@@ -396,7 +447,7 @@ class TutorSession:
         if self.state.revealed >= len(hints):
             self.blank()
             self.say(
-                "that was the last rung. Try `challenge`, or edit the file and run `retry`.",
+                "that was the last rung. Try /challenge, or edit the file and run /retry.",
                 colour="muted",
             )
             return True
@@ -437,11 +488,11 @@ class TutorSession:
         if attempt is None:
             return True
         self.blank()
-        self.emit(rule(self.style, "Evidence"))
+        self.emit(rule(self.style, "Evidence", colour="amber"))
         self.blank()
         self.emit(render_diagnosis(self.style, attempt.result.diagnosis, show_evidence=True))
         self.blank()
-        self.emit(rule(self.style, "Where it comes from"))
+        self.emit(rule(self.style, "Where it comes from", colour="sky"))
         self.blank()
         self.emit(render_alignment(self.style, attempt.result.alignment, self.graph))
         return True
@@ -469,11 +520,21 @@ class TutorSession:
     def cmd_problem(self, parts: List[str]) -> bool:
         if len(parts) < 2:
             if self.state.problem is None:
-                self.say("no task selected — `problems` lists them, or just `load` a file.", "muted")
+                self.say("no task selected — /problems lists them, or just /load a file.", "muted")
                 return True
             spec = self.state.problem
             self.blank()
-            self.emit(banner(self.style, spec.title, f"{spec.pid}  ·  entry point {spec.entry_point}()"))
+            self.emit(
+                block(
+                    self.style,
+                    [
+                        lede(self.style, "TASK", spec.title, colour="blue"),
+                        self.style.paint(spec.pid, "accent")
+                        + self.style.muted(f"  ·  entry point {spec.entry_point}()"),
+                    ],
+                    colour="blue",
+                )
+            )
             self.blank()
             self.emit(paragraph(self.style, spec.statement or "(no statement)", indent="  "))
             if spec.concepts:
@@ -491,9 +552,11 @@ class TutorSession:
             self.state.problem = self._detect_problem(self.state.source)
         else:
             self.state.problem = get_problem(choice)
-        self.emit(
-            "  " + self.style.muted("task set to ") + self.style.accent(self.state.problem.pid)
-        )
+        self.emit(block(
+            self.style,
+            [self.style.muted("task set to ") + self.style.accent(self.state.problem.pid)],
+            colour="blue",
+        ))
         if self.state.source:
             return self._diagnose(reason="problem")
         return True
@@ -514,7 +577,7 @@ class TutorSession:
             )
         )
         self.blank()
-        self.emit("  " + self.style.muted("`problem <id>` to pin one, or `load` a file and I will guess"))
+        self.emit(footnote(self.style, "/problem <id> to pin one, or /load a file and I will guess"))
         return True
 
     def cmd_concept(self, parts: List[str]) -> bool:
@@ -527,7 +590,7 @@ class TutorSession:
                     or attempt.result.alignment.root_cause
                 )
         if target is None:
-            self.problem_error("no concept in focus — `concept <id>`, or diagnose something first")
+            self.problem_error("no concept in focus — /concept <id>, or diagnose something first")
             return True
         if target not in self.graph:
             self.problem_error(f"unknown concept: {target}")
@@ -548,7 +611,7 @@ class TutorSession:
         observed = {cid: n for cid, n in state.observations.items() if n > 0}
         posterior = {cid: state.posterior[cid] for cid in observed if cid in state.posterior}
         self.blank()
-        self.emit(rule(self.style, "Concepts this session has evidence about"))
+        self.emit(rule(self.style, "Concepts this session has evidence about", colour="teal"))
         self.blank()
         self.emit(
             render_mastery(
@@ -560,7 +623,7 @@ class TutorSession:
 
     def cmd_progress(self, parts: List[str]) -> bool:
         self.blank()
-        self.emit(rule(self.style, "This session"))
+        self.emit(rule(self.style, "This session", colour="blue"))
         self.blank()
         self.emit(render_progress(self.style, self.state.attempts, self.graph))
         return True
@@ -578,7 +641,7 @@ class TutorSession:
         except OSError as exc:
             self.problem_error(f"could not launch {editor!r}: {exc}")
             return True
-        self.say("run `retry` when you are ready to see what changed.", "muted")
+        self.say("run /retry when you are ready to see what changed.", "muted")
         return True
 
     def cmd_reset(self, parts: List[str]) -> bool:
@@ -586,43 +649,101 @@ class TutorSession:
         self.state.attempts = []
         self.state.revealed = 0
         self.state.challenge_shown = False
-        self.emit("  " + self.style.muted("mastery estimate and history cleared"))
+        self.emit(block(self.style, [self.style.muted("mastery estimate and history cleared")],
+                        colour="dim"))
         return True
 
     def cmd_help(self, parts: List[str]) -> bool:
+        style = self.style
         if len(parts) > 1:
-            command = self.commands.get(parts[1].lower())
+            command = self.commands.get(parts[1].lower().lstrip("/"))
             if command is None:
                 self.problem_error(f"unknown command: {parts[1]}")
                 return True
             self.blank()
-            self.emit("  " + self.style.heading(command.usage))
-            self.emit("  " + self.style.muted(command.summary))
+            body = [
+                style.paint("/" + command.usage, "cyan", bold=True),
+                style.muted(command.summary),
+            ]
             if command.aliases:
-                self.emit("  " + self.style.muted("aliases: " + ", ".join(command.aliases)))
+                body.append(style.paint(
+                    "aliases: " + ", ".join("/" + a for a in command.aliases), "dim"))
+            self.emit(block(style, body, colour="cyan"))
             return True
 
-        seen = []
-        rows = []
-        for command in self.commands.values():
-            if command.name in seen:
-                continue
-            seen.append(command.name)
-            rows.append([
-                command.usage,
-                command.summary,
-                ", ".join(command.aliases) or "—",
-            ])
+        # images/session-commands.svg groups the commands by what they are
+        # for and gives each group one gloss and one colour, which is a far
+        # better answer than eighteen lines in a column
+        groups = [
+            (("load", "retry"), "cyan",
+             "read the file, and read it again once you have edited"),
+            (("hint",), "violet", "the next rung, and only the next rung"),
+            (("challenge", "why", "code", "report"), "amber",
+             "the evidence, the marked source, the whole report"),
+            (("mastery", "progress"), "teal",
+             "what the session believes, and how you got here"),
+            (("problems", "problem", "concept"), "blue",
+             "the curriculum: list the tasks, pin one, read a concept"),
+            (("edit", "status", "clear", "reset", "help", "quit"), "dim",
+             "the session itself"),
+        ]
+        known = {c.name: c for c in self.commands.values()}
+        placed = {name for names, _c, _g in groups for name in names}
+        # anything registered but not grouped still has to be listed
+        leftover = tuple(n for n in known if n not in placed)
+        if leftover:
+            groups.append((leftover, "dim", "other"))
+
+        gutter = max(len("/" + known[n].usage) for n in known)
         self.blank()
         self.emit(
-            table(
-                self.style,
-                [Column("command", min_width=20, priority=100), Column("what it does", min_width=24),
-                 Column("aliases", priority=20)],
-                rows,
-                indent="  ",
-            )
+            "  " + style.paint(_spaced("COMMAND REFERENCE"), "mint", bold=True)
+            + style.paint("   ", "dim")
+            + style.muted(f"{len(known)} commands")
         )
+        for names, colour, gloss in groups:
+            self.blank()
+            body = [style.paint(gloss, "text")]
+            for name in names:
+                command = known.get(name)
+                if command is None:
+                    continue
+                body.append(
+                    style.paint(pad("/" + command.usage, gutter), colour, bold=True)
+                    + "  " + style.muted(command.summary)
+                )
+            self.emit(block(style, body, colour=colour))
+        self.blank()
+        self.emit(footnote(style, "a bare path loads that file  ·  tab completes commands and paths"))
+        return True
+
+    def cmd_status(self, parts: List[str]) -> bool:
+        style = self.style
+        llm = self.config.llm
+        backend = self.orchestrator.reasoner.name
+        rows = [
+            ("reasoning", backend + (f"  ·  {llm.model}" if backend != "offline" else "")),
+            ("seed", str(self.config.seed)),
+            ("terminal", f"{style.width} columns" + ("" if style.enabled else "  ·  no colour")),
+            ("cwd", _home_path(Path.cwd())),
+            ("file", _short_path(self.state.path) if self.state.path else "nothing loaded"),
+            ("task", self.state.problem.pid if self.state.problem else "none pinned"),
+            ("attempts", str(len(self.state.attempts))),
+        ]
+        gutter = max(len(key) for key, _ in rows)
+        body = [
+            style.muted(pad(key, gutter)) + "  " + style.paint(value, "text")
+            for key, value in rows
+        ]
+        self.blank()
+        self.emit(brand_box(style, f"{CODENAME} Status  v{__version__}", body))
+        return True
+
+    def cmd_clear(self, parts: List[str]) -> bool:
+        if self.style.enabled:
+            self.output.write("\x1b[2J\x1b[3J\x1b[H")
+            self.output.flush()
+        self.emit(self.welcome())
         return True
 
     def cmd_quit(self, parts: List[str]) -> bool:
@@ -630,14 +751,14 @@ class TutorSession:
         if self.state.attempts:
             self.emit(render_progress(self.style, self.state.attempts, self.graph))
             self.blank()
-        self.emit("  " + self.style.muted("session ended"))
+        self.emit(footnote(self.style, "session ended"))
         return False
 
     # engine
     def _require_attempt(self) -> Optional[Attempt]:
         attempt = self.state.latest
         if attempt is None:
-            self.problem_error("nothing diagnosed yet — `load <path>` first")
+            self.problem_error("nothing diagnosed yet — /load <path> first")
         return attempt
 
     def _detect_problem(self, source: str) -> ProblemSpec:
@@ -659,14 +780,14 @@ class TutorSession:
             self.say(
                 "several tasks match this file: "
                 + ", ".join(spec.pid for spec in matches)
-                + ". Using the first; `problem <id>` to choose.",
+                + ". Using the first; /problem <id> to choose.",
                 colour="muted",
             )
             return matches[0]
         entry = names[0] if names else "solve"
         self.say(
             "no built-in task matches this file, so I will report structural findings only — "
-            "no counterexample search and no complexity comparison. `problems` lists the tasks "
+            "no counterexample search and no complexity comparison. /problems lists the tasks "
             "I have references for.",
             colour="muted",
         )
@@ -686,7 +807,8 @@ class TutorSession:
         )
 
         started = time.perf_counter()
-        result = self.orchestrator.tutor(spec, submission, mastery=self.state.mastery)
+        with Spinner(self.style, self.output, label="Diagnosing"):
+            result = self.orchestrator.tutor(spec, submission, mastery=self.state.mastery)
         elapsed = time.perf_counter() - started
 
         if result.mastery_posterior:
@@ -726,11 +848,11 @@ class TutorSession:
         self.blank()
         self.emit(render_verdict(self.style, result))
         for warning in result.telemetry.warnings:
-            self.emit("  " + self.style.warning("!  ") + self.style.muted(warning))
+            self.emit(block(self.style, [self.style.warning(warning)], colour="amber"))
 
         if previous is not None and reason in ("retry", "problem"):
             self.blank()
-            self.emit(rule(self.style, f"Attempt {index} vs {previous.index}"))
+            self.emit(rule(self.style, f"Attempt {index} vs {previous.index}", colour="teal"))
             self.blank()
             self.emit(render_attempt_diff(self.style, previous.result, result, self.graph))
 
@@ -743,15 +865,15 @@ class TutorSession:
         if not result.diagnosis.hits:
             return bullet(
                 style,
-                "Nothing to diagnose. Try a harder task with `problems`, or load another file.",
+                "Nothing to diagnose. Try a harder task with /problems, or /load another file.",
                 indent="  ",
             )
-        commands = ("hint", "why", "code", "challenge")
+        commands = ("/hint", "/why", "/code", "/challenge")
         parts = [("next", style.muted("next "))] + [
             (name, style.paint(name, "primary", bold=True)) for name in commands
         ]
         out = inline(style, parts, separator="  ·  ")
-        out.append("  " + style.muted(f"diagnosed in {elapsed * 1000:.0f} ms  ·  `help` explains each"))
+        out.append(footnote(style, f"diagnosed in {elapsed * 1000:.0f} ms  ·  /help explains each"))
         return out
 
     # readline

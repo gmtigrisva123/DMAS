@@ -9,13 +9,14 @@ import json
 import sys
 from dataclasses import replace
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from ..config import Config, LLMConfig
 from ..domain import Submission
 from ..errors import DMASError
 from ..knowledge.ontology import knowledge_graph
 from ..ui.ansi import Style
+from ..ui.widgets import DOT
 from ..version import CODENAME, __version__
 
 EPILOGUE = """\
@@ -90,11 +91,13 @@ def cmd_diagnose(args: argparse.Namespace) -> int:
     from ..agents.orchestrator import DeductiveOrchestrator
     from ..data.problems import problem as get_problem
     from ..ui.render import render_tutoring_result
+    from ..ui.spinner import Spinner
 
     config = _build_config(args)
     submission = _load_submission(args)
     spec = get_problem(args.problem or submission.problem_id)
-    result = DeductiveOrchestrator(config).tutor(spec, submission)
+    with Spinner(_style(args), sys.stdout, label="Diagnosing"):
+        result = DeductiveOrchestrator(config).tutor(spec, submission)
 
     if args.json:
         _emit_json(result.to_dict())
@@ -410,16 +413,21 @@ def cmd_demo(args: argparse.Namespace) -> int:
     from ..data.problems import problem as get_problem
     from ..data.submissions import submission as bank_submission
     from ..ui.render import render_tutoring_result
-    from ..ui.widgets import banner, bullet, paragraph, rule
+    from ..ui.brand import agent_row, wordmark
+    from ..ui.widgets import bullet, paragraph, rule
 
     config = _build_config(args)
     style = _style(args)
     orchestrator = DeductiveOrchestrator(config)
 
-    out = banner(
-        style,
-        f"{CODENAME} · Deductive Multi-Agent System",
-        f"v{__version__}  ·  reasoning backend: {orchestrator.reasoner.name}",
+    out = [""] + ["  " + line for line in wordmark(style)]
+    out.append("")
+    out.append("  " + agent_row(style, width=style.width - 2))
+    out.append("")
+    out.append(
+        "  " + style.paint("Deductive Multi-Agent System", "text")
+        + style.paint("  ·  ", "dim") + style.muted(f"v{__version__}")
+        + style.paint("  ·  ", "dim") + style.muted(orchestrator.reasoner.name)
     )
     out.append("")
     out += paragraph(
@@ -457,15 +465,15 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     from ..llm.registry import make_backend
     from ..retrieval.corpus import cards
     from ..retrieval.index import HybridIndex
-    from ..ui.widgets import Column, banner, table
+    from ..ui.widgets import block, brand_box, pad
 
     config = _build_config(args)
     style = _style(args)
     graph = knowledge_graph()
-    checks: List[Sequence[str]] = []
+    checks: List[Tuple[bool, str, str]] = []
 
     def check(name: str, ok: bool, detail: str) -> None:
-        checks.append([style.success("ok") if ok else style.danger("FAIL"), name, detail])
+        checks.append((ok, name, detail))
 
     check("python", sys.version_info >= (3, 9), f"{sys.version_info.major}.{sys.version_info.minor}")
     problems = validate_taxonomy(graph.ids)
@@ -487,16 +495,16 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     )
     check("cache", True, config.llm.cache_dir or "disabled")
 
-    out = banner(style, "Environment check", f"{CODENAME} v{__version__}")
-    out.append("")
-    out += table(
-        style,
-        [Column("", "left", 5), Column("component", min_width=24), Column("detail")],
-        checks,
-        indent="  ",
-    )
-    _emit(out)
-    return 0 if all(style.enabled is not None for _ in checks) else 1
+    gutter = max(len(name) for _ok, name, _detail in checks)
+    body = [
+        style.paint(DOT, "teal" if ok else "red") + " "
+        + style.paint(pad(name, gutter), "text")
+        + "  " + style.muted(detail)
+        + ("" if ok else "  " + style.danger("FAIL"))
+        for ok, name, detail in checks
+    ]
+    _emit(brand_box(style, f"{CODENAME} doctor  ·  environment check", body))
+    return 0 if all(ok for ok, _name, _detail in checks) else 1
 
 
 # parser

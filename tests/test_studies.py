@@ -17,7 +17,8 @@ from deductive_mas.knowledge.graph import KnowledgeGraph
 
 class TestRQ1Benchmark:
     @pytest.fixture(scope="class")
-    def result(self, config: Config, orchestrator: DeductiveOrchestrator) -> BenchmarkResult:
+    @classmethod
+    def result(cls, config: Config, orchestrator: DeductiveOrchestrator) -> BenchmarkResult:
         return DiagnosticBenchmark(config, orchestrator).run()
 
     def test_every_labelled_submission_is_scored(self, result: BenchmarkResult) -> None:
@@ -51,7 +52,8 @@ class TestRQ1Benchmark:
 
 class TestRQ3Robustness:
     @pytest.fixture(scope="class")
-    def result(self, config: Config, orchestrator: DeductiveOrchestrator) -> RobustnessResult:
+    @classmethod
+    def result(cls, config: Config, orchestrator: DeductiveOrchestrator) -> RobustnessResult:
         return RobustnessStudy(config, orchestrator).run(
             submissions=labelled()[:8],
             transforms=["rename-identifiers", "split-assignments", "inject-noise", COMPOSITE],
@@ -103,7 +105,8 @@ class TestRQ3Robustness:
 
 class TestRQ2Experiment:
     @pytest.fixture(scope="class")
-    def result(self, config: Config) -> ExperimentResult:
+    @classmethod
+    def result(cls, config: Config) -> ExperimentResult:
         return Experiment(config).run(students=48, seed=20260909, sessions=2)
 
     def test_all_three_arms_are_populated(self, result: ExperimentResult) -> None:
