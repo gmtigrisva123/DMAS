@@ -1,7 +1,7 @@
 PY ?= python3
 export PYTHONPATH := src
 
-.PHONY: help session demo diagnose experiment bench test lint clean install
+.PHONY: help session serve demo diagnose experiment bench test lint clean install
 
 help:
 	@$(PY) -m deductive_mas --help
@@ -11,6 +11,9 @@ install:
 
 session:
 	$(PY) -m deductive_mas session
+
+serve:
+	$(PY) -m deductive_mas serve
 
 demo:
 	$(PY) -m deductive_mas demo

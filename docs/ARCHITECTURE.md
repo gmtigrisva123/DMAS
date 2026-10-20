@@ -14,7 +14,7 @@ Dependencies point downward only. The package has no third-party dependencies at
 all, so every arrow below is code in this repository.
 
 ```
-                         cli/           ui/
+                  web/ ── cli/           ui/
                             \            /
                           agents/  ──────
                           /  |  \
@@ -42,6 +42,9 @@ all, so every arrow below is code in this repository.
 * **`ui/`**, **`cli/`** — presentation. Pure functions from results to lines,
   plus the interactive session, which owns the one thing a single call cannot:
   continuity across a learner's attempts.
+* **`web/`** — the same session behind HTTP. It calls the session's rules in
+  `cli/session.py` (`detect_problem`, `record_attempt`) instead of copying them,
+  so the terminal and the browser cannot drift apart.
 
 ## The blackboard
 
@@ -128,3 +131,50 @@ The offline reasoner is not a language model and does not pretend to be one. It
 is a rule-based generator that exists so the system always runs, so experiments
 are reproducible, and so the contribution of the reasoning model is measurable
 by ablation.
+
+## The web app
+
+`dmas serve` puts the interactive session behind a small JSON API and a static
+front end, both served by the standard library's threading HTTP server. It adds
+no logic of its own to diagnosis, alignment or intervention; what it adds is what
+a server needs and a terminal does not.
+
+**One projection, by whitelist.** A `TutoringResult` is never serialised. Each
+attempt is projected once, in `web/views.py`, right after the orchestrator
+returns, and the client only ever sees that projection. Left out on purpose: the
+reference solution and the oracle, the gate log (it keeps every rejected
+candidate verbatim), the telemetry warnings verbatim (a gate rejection quotes the
+text it rejected; they become fixed sentences), the challenge's expected insight
+(the gate never reviews it), the teacher-facing narrative and the divergence's
+reference state (both state the values rung 2 exists to reveal), and the
+grounding cards. A model's chain of thought never reaches a `TutoringResult` in
+the first place.
+
+**The gate, once more on the way out.** Every free-text field that could quote
+anything (rule rationales, a model's reasons, the rungs) passes the leakage
+detector again at the boundary and is replaced when it fails. The pipeline's own
+gate should make this a no-op, so a replacement is logged.
+
+**The ladder, one rung per request.** Rungs are sealed in the projection and
+leave through `POST /api/attempts/{n}/hints {rung}`, which reveals rung
+`revealed + 1` and nothing else: asking again for a shown rung is idempotent,
+asking ahead is refused, and only the latest attempt has a ladder.
+
+**Values the student's code produced are inert.** `repr`, `==`, `str` and even
+`isinstance` can dispatch to a method the student defined, which would run
+outside the step budget. The projection reads exact builtin types only.
+
+**One execution lock.** `GuardedRunner` lowers the interpreter's recursion limit
+for a run and restores it afterwards; the limit is process-wide, so concurrent
+runs would leave it lowered. Every execution of student code holds one lock, and
+a request that waits too long for it is told the tutor is busy. The step budget
+and the deadline are untouched.
+
+**Not an attempt.** Code that does not parse, or defines no function, is refused
+with its line and column instead of being diagnosed: the pipeline would report no
+finding for it and the session would credit the concept as repaired.
+
+The guarded interpreter is still not a sandbox. Work done inside one C call
+(`10 ** 10 ** 8`, a huge allocation) or inside a method the student defined and
+the core invokes outside the trace hook is not bounded by the step budget, so the
+server listens on localhost unless told otherwise.

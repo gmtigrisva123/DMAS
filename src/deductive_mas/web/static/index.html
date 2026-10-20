@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#f5f3ee" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0e0f11" media="(prefers-color-scheme: dark)">
+  <title>DMAS · Socratic tutor</title>
+  <link rel="icon" href="/static/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/app.css">
+  <script type="module" src="/static/js/main.js"></script>
+</head>
+<body>
+  <a class="skip" href="#editor-input">Skip to the code editor</a>
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+      <span class="brand-name">DMAS</span>
+      <span class="brand-sep" aria-hidden="true"></span>
+    </div>
+    <button class="task-switch" id="task-switch" type="button" aria-haspopup="dialog">
+      <span class="task-switch-label">Task</span>
+      <span class="task-switch-title" id="task-switch-title">Choose a task</span>
+      <svg class="icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M5.5 7.5 10 12l4.5-4.5"/></svg>
+    </button>
+    <nav class="topbar-tools" aria-label="Session">
+      <button class="tool" id="history-button" type="button" aria-haspopup="dialog" hidden>
+        <span class="history-dots" id="history-dots" aria-hidden="true"></span>
+        <span class="tool-label" id="history-label">Attempts</span>
+      </button>
+      <button class="tool" id="mastery-button" type="button" aria-haspopup="dialog">
+        <svg class="icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M3.5 15.5h13M5.5 12.5v-3M10 12.5v-7M14.5 12.5v-5"/></svg>
+        <span class="tool-label">Mastery</span>
+        <span class="tool-count" id="mastery-count" hidden></span>
+      </button>
+      <button class="tool tool-icon" id="theme-button" type="button" aria-label="Switch colour theme">
+        <svg class="icon icon-sun" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="3.2"/><path d="M10 2.5v1.8M10 15.7v1.8M2.5 10h1.8M15.7 10h1.8M4.7 4.7l1.3 1.3M14 14l1.3 1.3M4.7 15.3 6 14M14 6l1.3-1.3"/></svg>
+        <svg class="icon icon-moon" viewBox="0 0 20 20" aria-hidden="true"><path d="M15.8 12.6A6.5 6.5 0 0 1 7.4 4.2a6.5 6.5 0 1 0 8.4 8.4Z"/></svg>
+      </button>
+      <button class="tool tool-icon" id="menu-button" type="button" aria-label="Start over" title="Start over">
+        <svg class="icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M4.5 10a5.5 5.5 0 1 0 1.7-4"/><path d="M4.2 3.6v3h3"/></svg>
+      </button>
+    </nav>
+  </header>
+
+  <main class="workbench" id="workbench">
+    <section class="manuscript" aria-label="Your code">
+      <article class="task-card" id="task-card"></article>
+
+      <div class="editor-frame" id="editor-frame">
+        <div class="editor-head">
+          <div class="file-tab"><span class="file-dot" aria-hidden="true"></span><span>attempt.py</span></div>
+          <div class="editor-state" id="editor-state" aria-live="polite"></div>
+        </div>
+        <div class="editor" id="editor"></div>
+        <div class="editor-foot">
+          <div class="editor-message" id="editor-message" role="status" aria-live="polite"></div>
+          <div class="editor-actions">
+            <span class="caret-pos" id="caret-pos" aria-hidden="true">Ln 1, Col 1</span>
+            <button class="button button-primary" id="diagnose-button" type="button">
+              <span class="button-label" id="diagnose-label">Diagnose</span>
+              <kbd class="kbd" id="diagnose-kbd">⌘ ↵</kbd>
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="margin" id="margin" aria-label="The tutor" tabindex="-1"></section>
+  </main>
+
+  <nav class="mobile-switch" aria-label="View">
+    <button type="button" id="show-code" aria-pressed="true">Code</button>
+    <button type="button" id="show-tutor" aria-pressed="false">Tutor <span class="mobile-badge" id="mobile-badge" hidden></span></button>
+  </nav>
+
+  <div class="sr-only" id="announcer" aria-live="polite" aria-atomic="true"></div>
+
+  <dialog class="sheet" id="sheet" aria-labelledby="sheet-title">
+    <div class="sheet-inner">
+      <header class="sheet-head">
+        <h2 class="sheet-title" id="sheet-title"></h2>
+        <button class="tool tool-icon" type="button" data-close aria-label="Close">
+          <svg class="icon" viewBox="0 0 20 20" aria-hidden="true"><path d="m5.5 5.5 9 9M14.5 5.5l-9 9"/></svg>
+        </button>
+      </header>
+      <div class="sheet-body" id="sheet-body"></div>
+    </div>
+  </dialog>
+
+  <dialog class="modal" id="modal" aria-labelledby="modal-title">
+    <div class="modal-inner">
+      <header class="modal-head">
+        <h2 class="modal-title" id="modal-title"></h2>
+        <button class="tool tool-icon" type="button" data-close aria-label="Close">
+          <svg class="icon" viewBox="0 0 20 20" aria-hidden="true"><path d="m5.5 5.5 9 9M14.5 5.5l-9 9"/></svg>
+        </button>
+      </header>
+      <div class="modal-body" id="modal-body"></div>
+    </div>
+  </dialog>
+
+  <noscript><p class="noscript">The tutor needs JavaScript to run in this page.</p></noscript>
+</body>
+</html>

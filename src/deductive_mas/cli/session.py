@@ -146,6 +146,85 @@ class SessionState:
         return self.path.name if self.path else "(no file)"
 
 
+# the session's rules, kept apart from the terminal so the web app runs the
+# same ones instead of a copy of them
+def detect_problem(source: str) -> Tuple[ProblemSpec, Tuple[ProblemSpec, ...]]:
+    """Match a file to a task by the function it defines.
+    Returns the task and every built-in task the file could be: none means
+    the freeform fallback, more than one means the first was taken.
+    """
+    names: List[str] = []
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        names = []
+    else:
+        names = [
+            node.name for node in ast.walk(tree)
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        ]
+    matches = tuple(spec for spec in all_problems() if spec.entry_point in names)
+    if matches:
+        return matches[0], matches
+    return freeform_problem(names[0] if names else "solve"), ()
+
+
+def record_attempt(
+    orchestrator: DeductiveOrchestrator,
+    state: SessionState,
+    spec: ProblemSpec,
+    *,
+    label: str,
+    graph: Optional[KnowledgeGraph] = None,
+) -> Attempt:
+    """Diagnose state.source and fold the result into the session: mastery
+    carried in, a repaired belief credited, the ladder reset.
+    """
+    graph = graph or orchestrator.graph
+    index = len(state.attempts) + 1
+    submission = Submission(
+        sid=f"{label}#{index}",
+        problem_id=spec.pid,
+        source=state.source,
+        author="session",
+    )
+    result = orchestrator.tutor(spec, submission, mastery=state.mastery)
+
+    if result.mastery_posterior:
+        state.mastery = MasteryState(
+            posterior=dict(result.mastery_posterior),
+            observations=dict(result.mastery_observations),
+        )
+    previous = state.latest
+    if (
+        previous is not None
+        and not result.diagnosis.hits
+        and previous.result.diagnosis.hits
+        and state.mastery is not None
+    ):
+        # the learner was pointed at a concept, edited, and the finding is gone.
+        # That is evidence about that concept (the strongest kind a tutor gets) and
+        # only the session, which remembers the previous turn, can record it.
+        repaired = [
+            cid for cid in (
+                previous.result.intervention.target_concept,
+                previous.result.alignment.root_cause,
+            )
+            if cid and cid in graph
+        ]
+        if repaired:
+            state.mastery = orchestrator.tracker.apply_success(
+                state.mastery, dict.fromkeys(repaired), weight=0.8
+            )
+            result.mastery_posterior = dict(state.mastery.posterior)
+            result.mastery_observations = dict(state.mastery.observations)
+    attempt = Attempt(index=index, label=label, source=state.source, result=result)
+    state.attempts.append(attempt)
+    state.revealed = 0
+    state.challenge_shown = False
+    return attempt
+
+
 @dataclass
 class Command:
     name: str
@@ -763,87 +842,38 @@ class TutorSession:
 
     def _detect_problem(self, source: str) -> ProblemSpec:
         """Match a file to a task by the function it defines."""
-        names: List[str] = []
-        try:
-            tree = ast.parse(source)
-        except SyntaxError:
-            names = []
-        else:
-            names = [
-                node.name for node in ast.walk(tree)
-                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
-            ]
-        matches = [spec for spec in all_problems() if spec.entry_point in names]
-        if len(matches) == 1:
-            return matches[0]
+        spec, matches = detect_problem(source)
         if len(matches) > 1:
             self.say(
                 "several tasks match this file: "
-                + ", ".join(spec.pid for spec in matches)
+                + ", ".join(match.pid for match in matches)
                 + ". Using the first; /problem <id> to choose.",
                 colour="muted",
             )
-            return matches[0]
-        entry = names[0] if names else "solve"
-        self.say(
-            "no built-in task matches this file, so I will report structural findings only — "
-            "no counterexample search and no complexity comparison. /problems lists the tasks "
-            "I have references for.",
-            colour="muted",
-        )
-        return freeform_problem(entry)
+        elif not matches:
+            self.say(
+                "no built-in task matches this file, so I will report structural findings only — "
+                "no counterexample search and no complexity comparison. /problems lists the tasks "
+                "I have references for.",
+                colour="muted",
+            )
+        return spec
 
     def _diagnose(self, *, reason: str) -> bool:
         if not self.state.source.strip():
             self.problem_error("the file is empty")
             return True
         spec = self.state.problem or freeform_problem("solve")
-        index = len(self.state.attempts) + 1
-        submission = Submission(
-            sid=f"{self.state.label}#{index}",
-            problem_id=spec.pid,
-            source=self.state.source,
-            author="session",
-        )
 
         started = time.perf_counter()
         with Spinner(self.style, self.output, label="Diagnosing"):
-            result = self.orchestrator.tutor(spec, submission, mastery=self.state.mastery)
-        elapsed = time.perf_counter() - started
-
-        if result.mastery_posterior:
-            self.state.mastery = MasteryState(
-                posterior=dict(result.mastery_posterior),
-                observations=dict(result.mastery_observations),
+            attempt = record_attempt(
+                self.orchestrator, self.state, spec, label=self.state.label, graph=self.graph
             )
-        previous = self.state.latest
-        if (
-            previous is not None
-            and not result.diagnosis.hits
-            and previous.result.diagnosis.hits
-            and self.state.mastery is not None
-        ):
-            # the learner was pointed at a concept, edited, and the finding is gone.
-            # That is evidence about that concept (the strongest kind a tutor gets) and
-            # only the session, which remembers the previous turn, can record it.
-            repaired = [
-                cid for cid in (
-                    previous.result.intervention.target_concept,
-                    previous.result.alignment.root_cause,
-                )
-                if cid and cid in self.graph
-            ]
-            if repaired:
-                self.state.mastery = self.orchestrator.tracker.apply_success(
-                    self.state.mastery, dict.fromkeys(repaired), weight=0.8
-                )
-                result.mastery_posterior = dict(self.state.mastery.posterior)
-                result.mastery_observations = dict(self.state.mastery.observations)
-        self.state.attempts.append(
-            Attempt(index=index, label=self.state.label, source=self.state.source, result=result)
-        )
-        self.state.revealed = 0
-        self.state.challenge_shown = False
+        elapsed = time.perf_counter() - started
+        result = attempt.result
+        index = attempt.index
+        previous = self.state.previous
 
         self.blank()
         self.emit(render_verdict(self.style, result))

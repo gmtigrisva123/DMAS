@@ -23,6 +23,7 @@ EPILOGUE = """\
 examples:
   dmas session                                  interactive tutor: load a file, get hints one at a time
   dmas session --file attempt.py                ... and diagnose it straight away
+  dmas serve                                    the same tutor in a browser, on localhost
   dmas demo                                     a guided tour of one full session
   dmas diagnose --submission lb_inclusive_bound diagnose a submission from the bank
   dmas diagnose --file solution.py --problem lower_bound
@@ -458,6 +459,22 @@ def cmd_session(args: argparse.Namespace) -> int:
     return start(config, style=_style(args), path=args.file, problem_id=args.problem)
 
 
+def cmd_serve(args: argparse.Namespace) -> int:
+    from ..web.server import serve
+
+    config = _build_config(args)
+    try:
+        return serve(
+            config,
+            host=args.host,
+            port=args.port,
+            demo=args.demo,
+            secure_cookie=args.secure_cookie,
+        )
+    except OSError as exc:
+        raise DMASError(f"cannot listen on {args.host}:{args.port}: {exc.strerror or exc}")
+
+
 def cmd_doctor(args: argparse.Namespace) -> int:
     from ..data.problems import all_problems
     from ..data.submissions import all_submissions
@@ -545,6 +562,20 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--file", help="load and diagnose this file immediately")
     p.add_argument("--problem", help="pin the task instead of detecting it from the file")
     p.set_defaults(func=cmd_session)
+
+    p = sub.add_parser(
+        "serve", parents=[common],
+        help="the interactive tutor as a web app: submit code, get one question at a time",
+    )
+    p.add_argument("--host", default="127.0.0.1",
+                   help="interface to listen on (default: 127.0.0.1, this machine only)")
+    p.add_argument("--port", type=int, default=8765)
+    p.add_argument("--demo", action="store_true",
+                   help="offer flawed attempts from the bank as examples (not for learners: "
+                        "they are near-solutions of the tasks)")
+    p.add_argument("--secure-cookie", action="store_true",
+                   help="mark the session cookie Secure (when served behind HTTPS)")
+    p.set_defaults(func=cmd_serve)
 
     p = sub.add_parser("diagnose", parents=[common], help="diagnose one submission")
     p.add_argument("--submission", help="id from the built-in submission bank")

@@ -114,6 +114,31 @@ A partial fix that makes things worse is reported just as plainly — `persists`
 Tab completion and history work in a terminal; commands can also be piped in,
 which is how the tests drive it.
 
+### In a browser
+
+```bash
+./dmas serve            # http://127.0.0.1:8765
+```
+
+The same session as a web app, for learners who should not need a terminal: an
+editor that marks the line where the execution first diverged, the smallest
+failing input beside what a correct solution returns, the belief behind the
+mistake, one question per click, a predict-then-run experiment on the learner's
+own code, and the prerequisite chain with the mastery estimate. Edit and retry,
+and the attempt is compared with the last one exactly as in the terminal. Still
+no install and no third-party packages: the server is the standard library's,
+the front end is plain HTML, CSS and JavaScript, and the page loads nothing from
+any other origin.
+
+What reaches the browser is a whitelist, not a filter. The reference solution,
+the gate log, the model's reasoning, anything the gate rejected and every rung
+not yet asked for never leave the server, not even in an error. Code that does
+not parse is shown with its line and column instead of becoming an attempt.
+`--demo` adds flawed attempts from the bank as examples; leave it off for
+learners, since those are near-solutions of the tasks. The interpreter is the
+same guarded one, not a sandbox, so the server listens on localhost unless given
+`--host`; see `docs/ARCHITECTURE.md` before putting it on a network.
+
 ---
 
 ## What it actually does
@@ -313,6 +338,7 @@ variables are matched by behaviour.
 git clone <repository> && cd deductive_multi_agent_system_\(MAS\)
 ./dmas doctor                      # verify the environment
 ./dmas session --file attempt.py   # the interactive tutor
+./dmas serve                       # ... in a browser, on localhost
 ./dmas demo                        # a non-interactive guided tour
 ```
 
@@ -457,6 +483,7 @@ src/deductive_mas/
   stats/         special functions, tests, effect sizes, power, agreement
   ui/            terminal user interface, the interactive UI
   cli/           terminal presentation, the dmas command, the interactive session
+  web/           the same session in a browser: HTTP server, API, front end
 tests/           the test suite
 experiments/     result files, figure and number scripts, the live-run driver
 docs/

@@ -39,6 +39,10 @@ Documentation = "https://example.org/dmas/docs"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+# the web app's front end ships inside the package
+[tool.setuptools.package-data]
+"deductive_mas.web" = ["static/*.html", "static/*.css", "static/*.svg", "static/js/*.js"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
