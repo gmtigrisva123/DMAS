@@ -131,8 +131,27 @@ def safe_equivalent(a: Any, b: Any) -> bool:
     if ka in plain and kb in plain:
         return a == b
     if ka is dict and kb is dict:
-        return a.keys() == b.keys() and all(safe_equivalent(a[k], b[k]) for k in a)
+        # comparing the key views (a.keys() == b.keys()) would hash and compare
+        # the keys, dispatching a student key's __hash__/__eq__. Compare only
+        # when every key is an exact builtin scalar, so no student method runs;
+        # a dict keyed by anything else is reported as not equivalent.
+        if not (_plain_keys(a) and _plain_keys(b)) or len(a) != len(b):
+            return False
+        items_a = sorted(a.items(), key=lambda kv: (type(kv[0]).__name__, repr(kv[0])))
+        items_b = sorted(b.items(), key=lambda kv: (type(kv[0]).__name__, repr(kv[0])))
+        return all(
+            type(ka2) is type(kb2) and ka2 == kb2 and safe_equivalent(va, vb)
+            for (ka2, va), (kb2, vb) in zip(items_a, items_b)
+        )
     return False
+
+
+def _plain_keys(mapping: Dict[Any, Any]) -> bool:
+    """Whether every key is an exact builtin scalar, so sorting and comparing
+    the keys cannot run a method the student defined. repr/== on these builtins
+    never dispatches to student code.
+    """
+    return all(type(key) in (int, float, bool, str, type(None)) for key in mapping)
 
 
 # the gate, once more on the way out

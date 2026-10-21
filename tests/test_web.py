@@ -372,6 +372,12 @@ class TestHostileValues:
         assert render_value(10 ** 400).startswith("<int of")
         assert not safe_equivalent(Loud(), 1) and not safe_equivalent(1, Loud())
         assert safe_equivalent([1, 2.0], (1, 2)) and not safe_equivalent(True, 1)
+        # a dict keyed by a student object must compare without hashing or
+        # eq-ing that key (both raise here); it is simply reported unequal
+        assert safe_equivalent({"k": 1, 2: "v"}, {2: "v", "k": 1}) is True
+        assert safe_equivalent({"k": 1}, {"k": 2}) is False
+        assert safe_equivalent({Loud(): 1}, {Loud(): 1}) is False
+        assert safe_equivalent({"k": 1}, {Loud(): 1}) is False
 
     def test_an_exception_text_never_leaves_the_server(self, client: Client) -> None:
         # the core reprs a returned value outside the guard; a raising __repr__
@@ -657,6 +663,38 @@ class TestTheSandbox:
         assert client.post("/api/attempts", {"source": CPU_BOMB, "task": "lower_bound"})[0] == 422
         status, body = client.post("/api/attempts", {"source": BROKEN, "task": "lower_bound"})
         assert status == 200 and body["session"]["current"]["status"] == "diagnosis"
+
+    def test_jobs_queued_behind_the_worker_cap_still_succeed(self, config: Config) -> None:
+        # with one worker, concurrent analyses serialise in the zygote's queue;
+        # a queued-but-valid job must come back as a real result, never a false
+        # time-limit (the parent no longer imposes its own deadline).
+        hardened = dataclasses.replace(config, execution=dataclasses.replace(
+            config.execution, sandbox_workers=1))
+        service = TutorService(hardened)
+        port = None
+        gen = _serve(service)
+        _service, port = next(gen)
+        try:
+            results: List[int] = []
+            lock = threading.Lock()
+
+            def learner() -> None:
+                client = Client(port)
+                status, _body = client.post("/api/attempts", {"source": BROKEN, "task": "lower_bound"})
+                with lock:
+                    results.append(status)
+
+            threads = [threading.Thread(target=learner) for _ in range(5)]
+            for thread in threads:
+                thread.start()
+            for thread in threads:
+                thread.join(timeout=60)
+            assert results == [200] * 5
+        finally:
+            try:
+                next(gen)
+            except StopIteration:
+                pass
 
     def test_a_down_sandbox_is_reported_not_hidden(self, config: Config) -> None:
         service = TutorService(_hardened_config(config))

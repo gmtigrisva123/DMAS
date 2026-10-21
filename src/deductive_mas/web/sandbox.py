@@ -173,15 +173,17 @@ class ForkSandbox:
         except OSError:
             self._fail_all("the analysis sandbox stopped responding")
             return Outcome("down", message="the analysis sandbox is not running")
-        # the zygote enforces its own wall-clock deadline and always replies;
-        # this wait is only a backstop against the channel itself wedging.
-        if not event.wait(self.wall + 10.0):
-            with self._lock:
-                self._pending.pop(job_id, None)
-            return Outcome("limit", message="the analysis took too long")
+        # The zygote enforces each worker's own deadline and ALWAYS replies --
+        # even for a job that waited its turn behind the worker cap -- so we do
+        # not impose a deadline here (that would turn a queued-but-valid job
+        # into a false overrun). We only need to wake if the sandbox dies, which
+        # _fail_all signals by setting the event; the poll re-checks liveness.
+        while not event.wait(5.0):
+            if not self._alive:
+                break
         with self._lock:
             slot = self._pending.pop(job_id, None)
-        return (slot or {}).get("outcome") or Outcome("down", message="no reply")
+        return (slot or {}).get("outcome") or Outcome("down", message="the analysis sandbox is not running")
 
     def _read_loop(self) -> None:
         reader = _FrameReader()
