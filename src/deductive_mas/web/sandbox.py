@@ -298,17 +298,21 @@ class _Zygote:
     def _loop(self) -> None:
         while True:
             now = time.monotonic()
-            timeout = self._enforce_deadlines(now)
+            timeout = self._next_deadline(now)
             readers = [self._fd] + list(self._workers)
             try:
                 ready, _, _ = select.select(readers, [], [], timeout)
             except InterruptedError:
                 continue
+            # drain ready pipes BEFORE enforcing deadlines: a worker that has
+            # already written its full result must be delivered, not killed and
+            # reported as an overrun.
             for fd in ready:
                 if fd == self._fd:
                     self._on_control()
                 elif fd in self._workers:
                     self._on_worker(self._workers[fd])
+            self._enforce_deadlines(time.monotonic())
             self._pump_queue_from_control()
 
     # control channel (to the HTTP process)
@@ -362,6 +366,9 @@ class _Zygote:
                     pass
             self._run_worker(write_fd, handler, request.get("payload", {}))
         os.close(write_fd)
+        # non-blocking so the deadline sweep can take one last look at a worker's
+        # pipe (for a result it may have just written) without risking a block
+        os.set_blocking(read_fd, False)
         self._workers[read_fd] = _Worker(
             job_id=job_id, pid=pid, fd=read_fd, deadline=time.monotonic() + self._wall
         )
@@ -389,6 +396,8 @@ class _Zygote:
     def _on_worker(self, worker: _Worker) -> None:
         try:
             chunk = os.read(worker.fd, 65536)
+        except BlockingIOError:
+            return  # nothing waiting yet (the fd is non-blocking); not EOF
         except OSError:
             chunk = b""
         if chunk:
@@ -409,18 +418,29 @@ class _Zygote:
         verdict = self._postmortem(worker.pid)
         self._finish(worker.fd, worker.pid, {"id": worker.job_id, **verdict}, reap=False)
 
-    def _enforce_deadlines(self, now: float) -> Optional[float]:
-        soonest: Optional[float] = None
+    def _next_deadline(self, now: float) -> Optional[float]:
+        if not self._workers:
+            return None
+        return max(0.0, min(w.deadline for w in self._workers.values()) - now)
+
+    def _enforce_deadlines(self, now: float) -> None:
         for worker in list(self._workers.values()):
-            if now >= worker.deadline:
-                self._kill(worker.pid)
-                self._finish(worker.fd, worker.pid, {
-                    "id": worker.job_id, "status": "limit",
-                    "message": "the analysis ran past its time limit",
-                }, reap=True)
-            else:
-                soonest = worker.deadline if soonest is None else min(soonest, worker.deadline)
-        return None if soonest is None else max(0.0, soonest - now)
+            if now < worker.deadline:
+                continue
+            # last chance: a complete result may have landed in the pipe between
+            # the select() and now. Deliver it rather than kill a success.
+            self._on_worker(worker)
+            if worker.fd not in self._workers:
+                continue  # it delivered (or died) on that read; nothing to kill
+            self._kill(worker.pid)
+            # a worker that reaches the wall was NOT burning CPU: student code is
+            # CPU-bound and would have hit RLIMIT_CPU first, so this is a stuck
+            # trusted call (the reasoning model), not the learner's fault. Report
+            # it apart from a resource "limit".
+            self._finish(worker.fd, worker.pid, {
+                "id": worker.job_id, "status": "timeout",
+                "message": "the analysis ran past its wall-clock deadline",
+            }, reap=True)
 
     def _postmortem(self, pid: int) -> Dict[str, Any]:
         status = self._reap(pid)

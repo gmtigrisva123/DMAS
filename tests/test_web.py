@@ -18,7 +18,7 @@ from deductive_mas.llm.registry import Reasoner
 from deductive_mas.agents.orchestrator import DeductiveOrchestrator
 from deductive_mas.web import TutorService, make_server
 from deductive_mas.web.jobs import build_context, run_diagnose
-from deductive_mas.web.service import WebError, WebSession
+from deductive_mas.web.service import SessionStore, WebError, WebSession
 from deductive_mas.web.views import notes_from_warnings, render_value, safe_equivalent
 
 BROKEN = submission("lb_inclusive_bound").source
@@ -552,6 +552,42 @@ class TestUnits:
         assert args.no_sandbox is False
         assert build_parser().parse_args(["serve", "--no-sandbox"]).no_sandbox is True
 
+    def test_a_wall_timeout_reads_as_a_service_error_not_a_learner_fault(self, config: Config) -> None:
+        from deductive_mas.web.sandbox import Outcome
+
+        service = TutorService(config, isolate=False)
+        try:
+            with pytest.raises(WebError) as refused:
+                service._demand(Outcome("timeout"), diagnosing=True)
+            assert refused.value.status == 503 and refused.value.code == "overloaded"
+            assert "not the problem" in refused.value.message
+            run = service._demand(Outcome("timeout"), diagnosing=False)
+            assert run["run"]["budget"] is True
+        finally:
+            service.close()
+
+    def test_the_store_does_not_evict_a_session_in_flight(self) -> None:
+        store = SessionStore(capacity=2)
+        a, b = store.create(), store.create()
+        a.touched = time.time() - 100  # oldest, as a blocked diagnosis would be, but not TTL-expired
+        held, release = threading.Event(), threading.Event()
+
+        def hold_a() -> None:  # a request thread mid-diagnosis on A
+            with a.lock:
+                held.set()
+                release.wait(5)
+
+        worker = threading.Thread(target=hold_a)
+        worker.start()
+        held.wait(5)
+        try:
+            store.create()  # at capacity: must skip the locked A and evict B
+            assert store.get(a.token) is a
+            assert store.get(b.token) is None
+        finally:
+            release.set()
+            worker.join(5)
+
 
 # code that the step budget and the deadline inside the interpreter cannot
 # stop: an operation that runs to completion in one C call, and a method the
@@ -695,6 +731,62 @@ class TestTheSandbox:
                 next(gen)
             except StopIteration:
                 pass
+
+    def test_a_wall_clock_kill_is_a_service_timeout_not_the_learners_fault(
+        self, config: Config, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # a worker stuck NOT on CPU (here a sleep standing in for a slow model
+        # call) is killed by the wall, not RLIMIT_CPU. That must read as a
+        # service timeout, never as the learner's infinite loop.
+        import deductive_mas.web.sandbox as sandbox_module
+        from deductive_mas.web.jobs import build_context
+
+        def sleeper(_ctx: Any, _payload: Dict[str, Any]) -> Dict[str, Any]:
+            import time as _time
+            _time.sleep(8)
+            return {}
+
+        monkeypatch.setitem(sandbox_module._DISPATCH, "diagnose", sleeper)
+        cfg = dataclasses.replace(
+            config,
+            llm=dataclasses.replace(config.llm, timeout=0.0),
+            execution=dataclasses.replace(
+                config.execution, sandbox_cpu_seconds=1, sandbox_wall_seconds=2, sandbox_workers=2),
+        )
+        sandbox = sandbox_module.ForkSandbox(build_context(cfg), cfg)
+        try:
+            outcome = sandbox.diagnose({"source": "x"})
+            assert outcome.status == "timeout"
+        finally:
+            sandbox.close()
+
+    def test_a_result_landing_near_the_deadline_is_delivered_not_killed(
+        self, config: Config, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # the deadline sweep must drain a finished worker's pipe before killing
+        # it: a job that returns shortly before its wall comes back as a real
+        # result, never a spurious timeout.
+        import deductive_mas.web.sandbox as sandbox_module
+        from deductive_mas.web.jobs import build_context
+
+        def almost(_ctx: Any, _payload: Dict[str, Any]) -> Dict[str, Any]:
+            import time as _time
+            _time.sleep(3)
+            return {"landed": True}
+
+        monkeypatch.setitem(sandbox_module._DISPATCH, "diagnose", almost)
+        cfg = dataclasses.replace(
+            config,
+            llm=dataclasses.replace(config.llm, timeout=0.0),
+            execution=dataclasses.replace(
+                config.execution, sandbox_cpu_seconds=1, sandbox_wall_seconds=2, sandbox_workers=2),
+        )  # wall = max(2, 0 + 1 + 5) = 6s; the job returns at ~3s
+        sandbox = sandbox_module.ForkSandbox(build_context(cfg), cfg)
+        try:
+            outcome = sandbox.diagnose({"source": "x"})
+            assert outcome.status == "ok" and outcome.result == {"landed": True}
+        finally:
+            sandbox.close()
 
     def test_a_down_sandbox_is_reported_not_hidden(self, config: Config) -> None:
         service = TutorService(_hardened_config(config))

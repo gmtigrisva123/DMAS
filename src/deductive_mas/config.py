@@ -74,8 +74,12 @@ class ExecutionConfig:
     # the host; these are the child's own hard ceilings. A full analysis is
     # well under a second of CPU, so the defaults are generous.
     sandbox_cpu_seconds: float = 8.0          # RLIMIT_CPU, then SIGKILL one second later
-    sandbox_address_space_mb: int = 1024      # RLIMIT_AS: caps a memory bomb
-    sandbox_wall_seconds: float = 12.0        # parent's kill deadline, backstop to the CPU limit
+    # RLIMIT_AS per worker: caps a memory bomb. A real analysis needs well
+    # under 100 MB, so this is generous. Note the host must have room for the
+    # worst case of several at once: sandbox_workers * sandbox_address_space_mb
+    # (here 4 * 512 MB = 2 GB) is bounded only per worker, not in aggregate.
+    sandbox_address_space_mb: int = 512
+    sandbox_wall_seconds: float = 12.0        # floor for the kill deadline; raised to cover the LLM timeout
     sandbox_workers: int = 4                  # analyses that may run at once
 
 

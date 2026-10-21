@@ -158,11 +158,27 @@ class SessionStore:
             for token in [t for t, s in self._sessions.items() if now - s.touched > self.ttl]:
                 del self._sessions[token]
             while len(self._sessions) >= self.capacity:
-                oldest = min(self._sessions.values(), key=lambda s: s.touched)
-                del self._sessions[oldest.token]
+                self._evict_one()
             session = WebSession(token=secrets.token_urlsafe(32))
             self._sessions[session.token] = session
             return session
+
+    def _evict_one(self) -> None:
+        """Drop one session at capacity, oldest first, but never one whose lock
+        is held: that session is mid-request (a blocked diagnosis freezes its
+        `touched`, which is exactly what would make it look evictable), and
+        evicting it would lose a learner's history under their feet. Fall back
+        to the plain oldest only if every session is busy.
+        """
+        for session in sorted(self._sessions.values(), key=lambda s: s.touched):
+            if session.lock.acquire(blocking=False):
+                try:
+                    del self._sessions[session.token]
+                finally:
+                    session.lock.release()
+                return
+        oldest = min(self._sessions.values(), key=lambda s: s.touched)
+        del self._sessions[oldest.token]
 
 
 class TutorService:
@@ -434,9 +450,20 @@ class TutorService:
             # never shown, and the HTTP layer turns the raise into a fixed 500.
             sys.stderr.write(f"dmas web: the analyser failed with {outcome.message or 'an error'}\n")
             raise WebError(500, "internal", "the server failed to handle the request")
+        if outcome.status == "timeout" and diagnosing:
+            # the wall-clock, not the CPU ceiling, killed the worker: it was
+            # blocked (in practice on the reasoning model), not spinning in the
+            # learner's code. Say so honestly instead of blaming their program.
+            sys.stderr.write("dmas web: an analysis passed its wall-clock deadline (backend slow?)\n")
+            raise WebError(
+                503, "overloaded",
+                "The tutor took too long to respond this time; the reasoning service may be busy. "
+                "Your code was not the problem — please try again in a moment.",
+            )
         if not diagnosing:
             # the editor's code blew its ceiling (limit) or died (crash) on the
-            # challenge input; either way the run hit the wall
+            # challenge input; either way the run hit the wall. A challenge
+            # makes no model calls, so a wall "timeout" here is near-impossible.
             return {"run": {
                 "input": None, "ok": False, "value": None,
                 "error": "The code used more time or memory than the tutor allows.",
