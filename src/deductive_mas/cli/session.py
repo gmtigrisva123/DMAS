@@ -216,19 +216,29 @@ def settle_mastery(
             posterior=dict(result.mastery_posterior),
             observations=dict(result.mastery_observations),
         )
+    # The credit is strong evidence, so it is earned only by a repair an oracle
+    # actually confirmed: the finding is gone, no input still fails, AND the
+    # differential tester ran and the code passed (checks_total > 0). That one
+    # condition rules out every false repair at once -- an empty diagnosis from
+    # a crashed evaluator or an unparseable file (no checks run), and a task
+    # with no oracle to confirm against (freeform, also no checks) -- alongside
+    # the live-counterexample case the attempt diff already calls "not a repair".
+    diagnosis = result.diagnosis
+    confirmed_pass = (
+        not diagnosis.hits
+        and diagnosis.counterexample is None
+        and diagnosis.checks_total > 0
+    )
     if (
         previous is not None
-        and not result.diagnosis.hits
-        and result.diagnosis.counterexample is None
+        and confirmed_pass
         and previous.findings
         and mastery is not None
     ):
-        # the learner was pointed at a concept, edited, and the finding is gone
-        # AND no input still fails. A finding that disappears while a
-        # counterexample remains is not a repair (the diff says the same), so
-        # it earns no credit. That it is evidence about the concept -- the
-        # strongest kind a tutor gets -- and only the session, which remembers
-        # the previous turn, can record it.
+        # the learner was pointed at a concept, edited, and the oracle confirms
+        # the fix. That is evidence about the concept -- the strongest kind a
+        # tutor gets -- and only the session, which remembers the previous turn,
+        # can record it.
         repaired = [
             cid for cid in (previous.target_concept, previous.root_cause)
             if cid and cid in graph

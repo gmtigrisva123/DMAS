@@ -202,10 +202,14 @@ finding for it and the session would credit the concept as repaired. This check
 is parse-and-compile only, so it runs in the HTTP process, before a worker.
 
 **The repair credit.** When a learner is pointed at a concept, edits, and the
-finding is gone, that is strong evidence the belief was mended, and
+oracle confirms the fix, that is strong evidence the belief was mended, and
 `settle_mastery` (shared with the terminal) credits it. Two conditions keep the
-credit honest: the attempt must no longer fail on any input — a finding that
-disappears while a counterexample remains is a patched symptom, not a repair —
-and it must be a retry of the *same* task, so a different task's success never
-credits the concept the learner was last working on. The terminal and the
-browser apply the same two rules, through the same function.
+credit honest. First, the oracle must actually have confirmed a pass: the
+finding is gone, no input still fails, and the differential tester ran and the
+code passed. That single test rules out every false repair at once — a finding
+that vanishes while a counterexample remains (a patched symptom), an empty
+diagnosis from a crashed evaluator or an unparseable file, and a freeform task
+with no oracle to confirm against. Second, it must be a retry of the *same*
+task, so a different task's success never credits the concept the learner was
+last working on. The terminal and the browser apply the same rules, through the
+same function.

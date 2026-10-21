@@ -340,6 +340,49 @@ class TestTheRepairCredit:
         assert (second.result.mastery_posterior[target]
                 <= first.result.mastery_posterior[target] + 1e-9)
 
+    def test_a_crashed_analysis_earns_no_repair_credit(
+        self, orchestrator: "object", graph: "object", config: Config
+    ) -> None:
+        from deductive_mas.cli.session import SessionState, detect_problem, record_attempt
+
+        crashing = (
+            "class B:\n"
+            "    def __repr__(self):\n"
+            "        raise ValueError('x')\n"
+            "def lower_bound(a, t):\n"
+            "    return B()\n"
+        )
+        state = SessionState()
+        spec, _ = detect_problem(BROKEN)
+        state.problem, state.source = spec, BROKEN
+        first = record_attempt(orchestrator, state, spec, label="t", graph=graph)
+        target = first.result.intervention.target_concept
+        before = state.mastery.posterior[target]
+
+        state.source = crashing  # the evaluator crashes: no finding, but nothing was established
+        second = record_attempt(orchestrator, state, spec, label="t", graph=graph)
+        assert not second.result.diagnosis.hits
+        assert any("failed" in w for w in second.result.telemetry.warnings)
+        # a crash is not a repair: the concept is not credited
+        assert state.mastery.posterior[target] <= before + 1e-9
+
+    def test_an_unparseable_retry_earns_no_repair_credit(
+        self, orchestrator: "object", graph: "object"
+    ) -> None:
+        from deductive_mas.cli.session import SessionState, detect_problem, record_attempt
+
+        state = SessionState()
+        spec, _ = detect_problem(BROKEN)
+        state.problem, state.source = spec, BROKEN
+        first = record_attempt(orchestrator, state, spec, label="t", graph=graph)
+        target = first.result.intervention.target_concept
+        before = state.mastery.posterior[target]
+
+        state.source = "def lower_bound(a, t:\n    return 0\n"  # a syntax error: nothing is confirmed
+        second = record_attempt(orchestrator, state, spec, label="t", graph=graph)
+        assert not second.result.diagnosis.hits and second.result.diagnosis.checks_total == 0
+        assert state.mastery.posterior[target] <= before + 1e-9
+
     def test_no_repair_credit_across_a_task_switch(
         self, orchestrator: "object", graph: "object"
     ) -> None:
