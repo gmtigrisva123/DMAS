@@ -2,22 +2,21 @@
 
 Thin by design. Diagnosis, mastery and the ladder belong to the
 orchestrator and to cli/session.py, whose rules (task detection, the repair
-credit, the ladder reset) are called here rather than copied. This module
-adds what a server needs and a terminal does not: many learners at once,
-input checking, and one lock.
+credit) are called here rather than copied. This module adds what a server
+needs and a terminal does not: many learners at once, input checking, and a
+hard boundary around the code it runs.
 
-The lock: GuardedRunner lowers the interpreter's recursion limit for the
-length of a run and restores it afterwards. That limit belongs to the whole
-process, so two runs on two threads restore each other's value and leave
-the process at the lowered one. Every execution of student code holds
-`execution`: the whole orchestrator pass, and a challenge run. The step
-budget and the deadline inside the runner are untouched.
+That boundary is a process. The orchestrator and the student's code run in a
+short-lived child (see sandbox.py); the HTTP process holds only a session's
+plain, already-projected state and never executes student code itself. So
+the reasoning model's chain of thought, the gate's rejected candidates and
+the reference solution exist only in a child and die with it, and a
+submission that overruns its CPU or memory is killed without touching
+anyone else. The step budget and the deadline inside the interpreter are
+unchanged; the process ceilings sit outside them.
 """
 
 import ast
-import contextlib
-import copy
-import io
 import secrets
 import sys
 import threading
@@ -25,28 +24,22 @@ import time
 import warnings
 from collections import deque
 from dataclasses import dataclass, field
-from typing import Any, Deque, Dict, Iterator, List, Optional, Tuple
+from typing import Any, Deque, Dict, List, Optional, Tuple
 
-from ..agents.orchestrator import DeductiveOrchestrator
-from ..analysis.tracer import GuardedRunner
-from ..cli.session import MAX_SOURCE_BYTES, SessionState, detect_problem, record_attempt
+from ..cli.session import Carry, MAX_SOURCE_BYTES, detect_problem
 from ..config import Config
 from ..data.problems import all_problems, problem as get_problem
 from ..data.submissions import all_submissions
 from ..domain import ProblemSpec
-from ..pipeline import resolve_entry
+from ..knowledge.mastery import MasteryState
 from ..version import __version__
 from . import views
-from .views import Boundary
+from .jobs import SandboxContext, build_context, carry_data
+from .sandbox import Outcome, make_sandbox
 
-# analyses (diagnoses and challenge runs) one session may start per minute.
-# They are serialised behind one lock, so a runaway client would otherwise
-# queue everyone else behind it.
+# analyses (diagnoses and challenge runs) one session may start per minute
 ANALYSES_PER_MINUTE = 20
 MAX_ATTEMPTS = 200
-# how long a request queues for the execution lock before it is told the
-# tutor is busy, instead of piling up behind a run that will not finish
-EXECUTION_WAIT = 45.0
 
 
 class WebError(Exception):
@@ -65,33 +58,59 @@ class WebError(Exception):
 
 @dataclass
 class Projection:
-    """One attempt as the client may see it, computed once. The ladder and the
-    challenge are sealed in here and leave one request at a time.
+    """One attempt as the client may see it, built once from what the child
+    returned. Everything here is plain data; the raw result never existed in
+    this process.
     """
 
     view: Dict[str, Any]
     summary: Dict[str, Any]
     hints: Tuple[Dict[str, Any], ...] = ()
     challenge: Optional[Dict[str, Any]] = None
-    challenge_args: Optional[Tuple[Any, ...]] = None
-    required: Any = None
+    challenge_args: Optional[List[Any]] = None
     has_required: bool = False
     diff: Optional[Dict[str, Any]] = None
 
 
 @dataclass
+class AttemptRecord:
+    """What the session keeps about one diagnosed attempt: its projection for
+    the client, and the plain summary of beliefs the next diff and the repair
+    credit need.
+    """
+
+    index: int
+    source: str
+    carry: Carry
+    projection: Projection
+
+
+@dataclass
 class WebSession:
-    """One learner: the terminal's SessionState plus what the web adds."""
+    """One learner: the small amount of plain state the server keeps between
+    requests. No TutoringResult and no student value is among it.
+    """
 
     token: str
-    state: SessionState = field(default_factory=SessionState)
-    projections: Dict[int, Projection] = field(default_factory=dict)
-    # the task the learner asked for last: a task id, or "auto"
+    mastery: Optional[MasteryState] = None
+    problem: Optional[ProblemSpec] = None
+    source: str = ""
+    attempts: List[AttemptRecord] = field(default_factory=list)
+    revealed: int = 0
+    challenge_shown: bool = False
     task_mode: Optional[str] = None
     created: float = field(default_factory=time.time)
     touched: float = field(default_factory=time.time)
     lock: threading.RLock = field(default_factory=threading.RLock, repr=False)
     recent: Deque[float] = field(default_factory=deque, repr=False)
+
+    @property
+    def latest(self) -> Optional[AttemptRecord]:
+        return self.attempts[-1] if self.attempts else None
+
+    @property
+    def previous_carry(self) -> Optional[Carry]:
+        return self.attempts[-1].carry if self.attempts else None
 
     def spend(self, now: float, *, limit: int = ANALYSES_PER_MINUTE, window: float = 60.0) -> None:
         while self.recent and now - self.recent[0] > window:
@@ -146,16 +165,6 @@ class SessionStore:
             return session
 
 
-class _Discard(io.TextIOBase):
-    """Where a submission's print() goes: not into the server's log."""
-
-    def writable(self) -> bool:
-        return True
-
-    def write(self, text: str) -> int:
-        return len(text)
-
-
 class TutorService:
     """Everything the HTTP layer can ask for."""
 
@@ -163,21 +172,25 @@ class TutorService:
         self,
         config: Optional[Config] = None,
         *,
-        orchestrator: Optional[DeductiveOrchestrator] = None,
+        orchestrator: Optional[Any] = None,
         store: Optional[SessionStore] = None,
         demo: bool = False,
+        isolate: bool = True,
     ) -> None:
         self.config = config or Config()
-        self.orchestrator = orchestrator or DeductiveOrchestrator(self.config)
-        self.graph = self.orchestrator.graph
-        self.verifier = self.orchestrator.verification.verifier
-        self.runner = GuardedRunner(self.config.execution)
+        context: SandboxContext = build_context(self.config, orchestrator)
+        self.orchestrator = context.orchestrator  # held for reference data only
+        self.graph = context.graph
         self.sessions = store or SessionStore()
         self.demo = demo
-        self.execution = threading.Lock()
+        self.sandbox = make_sandbox(context, self.config, isolate=isolate)
+        self.isolated = isolate and type(self.sandbox).__name__ == "ForkSandbox"
         # rungs the boundary had to replace: the pipeline's own gate should
         # make this stay at zero, so anything else is worth a line in the log
         self.boundary_replacements = 0
+
+    def close(self) -> None:
+        self.sandbox.close()
 
     # reference data
     def meta(self) -> Dict[str, Any]:
@@ -185,6 +198,7 @@ class TutorService:
             "version": __version__,
             "backend": self.orchestrator.reasoner.name,
             "demo": self.demo,
+            "isolated": self.isolated,
             "max_source_bytes": MAX_SOURCE_BYTES,
             "mastery_threshold": self.config.knowledge.mastery_threshold,
             "zpd": [self.config.intervention.zpd_low, self.config.intervention.zpd_high],
@@ -212,55 +226,56 @@ class TutorService:
     def concept(self, cid: str, session: Optional[WebSession] = None) -> Dict[str, Any]:
         if cid not in self.graph:
             raise WebError(404, "unknown_concept", f"there is no concept {cid!r} in the curriculum")
-        mastery = session.state.mastery if session is not None else None
+        mastery = session.mastery if session is not None else None
         return views.concept_view(cid, self.graph, mastery=mastery)
 
     # the session
     def snapshot(self, session: WebSession) -> Dict[str, Any]:
-        state = session.state
+        with session.lock:  # a GET /api/session may race a POST that is mutating it
+            return self._snapshot(session)
+
+    def _snapshot(self, session: WebSession) -> Dict[str, Any]:
         current = None
-        latest = state.latest
+        latest = session.latest
         if latest is not None:
-            projection = session.projections[latest.index]
+            projection = latest.projection
             current = dict(projection.view)
             current["ladder"] = {
                 "total": len(projection.hints),
-                "revealed": list(projection.hints[: state.revealed]),
+                "revealed": list(projection.hints[: session.revealed]),
             }
             challenge: Dict[str, Any] = {
                 "available": projection.challenge is not None,
-                "shown": state.challenge_shown,
+                "shown": session.challenge_shown,
             }
-            if state.challenge_shown and projection.challenge is not None:
+            if session.challenge_shown and projection.challenge is not None:
                 challenge.update(projection.challenge)
             current["challenge"] = challenge
             current["diff"] = projection.diff
         return {
-            "attempts": [session.projections[a.index].summary for a in state.attempts],
+            "attempts": [record.projection.summary for record in session.attempts],
             "current": current,
             "mastery": views.mastery_view(
-                state.mastery, self.graph, self.config.knowledge.mastery_threshold
+                session.mastery, self.graph, self.config.knowledge.mastery_threshold
             ),
-            "task": views.task_view(state.problem, self.graph) if state.problem else None,
+            "task": views.task_view(session.problem, self.graph) if session.problem else None,
             "task_mode": session.task_mode,
         }
 
     def submit(self, session: WebSession, source: Any, task: Any) -> Dict[str, Any]:
-        """load and retry from the terminal, decided by whether this is the
+        """Load and retry from the terminal, decided by whether this is the
         task the last attempt answered.
         """
         if not isinstance(task, str) or not task:
             raise WebError(400, "bad_request", "say which task this code answers, or 'auto'")
         with session.lock:
-            state = session.state
-            if len(state.attempts) >= MAX_ATTEMPTS:
+            if len(session.attempts) >= MAX_ATTEMPTS:
                 raise WebError(
                     409, "attempt_limit",
                     "This session has reached its attempt limit. Start over to keep going.",
                 )
             session.spend(time.time())
-            with self._exclusive():
-                source = check_source(source)
+            source = check_source(source)
 
             # "auto" detects the task from the function on every submission:
             # the editor is not one file, a learner can paste anything into it.
@@ -271,16 +286,16 @@ class TutorService:
             else:
                 spec = _known_task(task)
 
-            previous_spec = state.problem
+            previous_spec = session.problem
             retry = (
-                bool(state.attempts)
+                bool(session.attempts)
                 and previous_spec is not None
                 and spec.pid == previous_spec.pid
                 and spec.entry_point == previous_spec.entry_point
             )
             notes = _detection_notes(spec, matches) if matches is not None and not retry else []
             session.task_mode = task
-            if retry and source == state.source:
+            if retry and source == session.source:
                 return {
                     "unchanged": True,
                     "message": (
@@ -290,23 +305,31 @@ class TutorService:
                     "session": self.snapshot(session),
                 }
 
-            # all or nothing: an attempt that cannot be projected must not stay
-            # in the session, or every later snapshot would trip over it
-            saved = (state.problem, state.source, list(state.attempts), state.mastery,
-                     state.revealed, state.challenge_shown)
-            state.problem, state.source = spec, source
-            try:
-                with self._exclusive(), _quiet():
-                    attempt = record_attempt(
-                        self.orchestrator, state, spec, label="editor", graph=self.graph
-                    )
-                previous = state.previous if retry else None
-                projection = self._project(attempt.index, attempt.result, source, previous, notes)
-            except BaseException:
-                (state.problem, state.source, state.attempts, state.mastery,
-                 state.revealed, state.challenge_shown) = saved
-                raise
-            session.projections[attempt.index] = projection
+            index = len(session.attempts) + 1
+            previous = session.previous_carry if retry else None
+            payload = {
+                "source": source,
+                "task": _task_ref(spec),
+                "index": index,
+                "mastery": _mastery_data(session.mastery),
+                "previous": carry_data(previous) if previous is not None else None,
+                "notes": notes,
+            }
+            result = self._demand(self.sandbox.diagnose(payload), diagnosing=True)
+
+            projection = self._build_projection(result)
+            if result.get("mastery"):
+                session.mastery = MasteryState(
+                    posterior=dict(result["mastery"]["posterior"]),
+                    observations=dict(result["mastery"]["observations"]),
+                )
+            session.problem, session.source = spec, source
+            session.attempts.append(AttemptRecord(
+                index=index, source=source, carry=_carry(result["carry"]), projection=projection
+            ))
+            session.revealed = 0
+            session.challenge_shown = False
+            self._log_replacements(index, result)
             return {"unchanged": False, "retry": retry, "session": self.snapshot(session)}
 
     def reveal(self, session: WebSession, index: Any, rung: Any) -> Dict[str, Any]:
@@ -318,7 +341,6 @@ class TutorService:
             raise WebError(400, "bad_request", "rung must be a positive integer")
         with session.lock:
             projection = self._latest(session, index)
-            state = session.state
             total = len(projection.hints)
             if not total:
                 return {
@@ -326,7 +348,7 @@ class TutorService:
                     "message": "There is no guidance for this attempt: nothing was diagnosed.",
                     "session": self.snapshot(session),
                 }
-            if rung <= state.revealed:
+            if rung <= session.revealed:
                 return {"status": "revealed", "hint": projection.hints[rung - 1],
                         "session": self.snapshot(session)}
             if rung > total:
@@ -335,13 +357,13 @@ class TutorService:
                     "message": "That was the last question. Try the challenge, or edit and retry.",
                     "session": self.snapshot(session),
                 }
-            if rung != state.revealed + 1:
+            if rung != session.revealed + 1:
                 raise WebError(
                     409, "out_of_order",
                     "Questions open one at a time.",
-                    next=state.revealed + 1,
+                    next=session.revealed + 1,
                 )
-            state.revealed = rung
+            session.revealed = rung
             return {"status": "revealed", "hint": projection.hints[rung - 1],
                     "session": self.snapshot(session)}
 
@@ -354,75 +376,88 @@ class TutorService:
                     "message": "No counter-factual challenge was produced for this attempt.",
                     "session": self.snapshot(session),
                 }
-            session.state.challenge_shown = True
+            session.challenge_shown = True
             return {"status": "shown", "challenge": projection.challenge,
                     "session": self.snapshot(session)}
 
     def run_challenge(self, session: WebSession, index: Any, source: Any) -> Dict[str, Any]:
         """Predict, then run: the code in the editor on the challenge's input,
-        under the same guarded runner and the same budgets as a diagnosis.
+        under the same guarded runner and the same budgets as a diagnosis, in
+        the same kind of child process.
         """
         with session.lock:
             projection = self._latest(session, index)
-            state = session.state
-            if not state.challenge_shown or projection.challenge is None:
+            if not session.challenge_shown or projection.challenge is None:
                 raise WebError(409, "challenge_closed", "Open the challenge before running it.")
             if projection.challenge_args is None:
                 raise WebError(409, "not_runnable", "This challenge has no input to run.")
             session.spend(time.time())
-            spec = state.problem
+            spec = session.problem
             assert spec is not None
-            with self._exclusive():
-                source = check_source(source)
-                entry = resolve_entry(source, spec.entry_point)
-                with _quiet():
-                    outcome = self.runner.run(
-                        source, entry, copy.deepcopy(list(projection.challenge_args)), trace=False
-                    )
-            run: Dict[str, Any] = {
-                "input": views.render_value(projection.challenge_args),
-                "ok": outcome.ok,
-                "value": views.render_value(outcome.value) if outcome.ok else None,
-                "error": None if outcome.ok else _error_line(outcome.error_type, outcome.error),
-                "budget": bool(outcome.timed_out or outcome.recursion_overflow),
-                "required": (
-                    views.render_value(projection.required) if projection.has_required else None
-                ),
-                "agrees": (
-                    views.safe_equivalent(outcome.value, projection.required)
-                    if outcome.ok and projection.has_required else None
-                ),
+            source = check_source(source)
+            payload = {
+                "source": source,
+                "task": _task_ref(spec),
+                "entry": spec.entry_point,
+                "args": list(projection.challenge_args),
+                "has_required": projection.has_required,
             }
-            return {"run": run}
+            result = self._demand(self.sandbox.challenge(payload), diagnosing=False)
+            return {"run": result["run"]}
 
     def reset(self, session: WebSession) -> Dict[str, Any]:
         """Forget the mastery estimate and the history, like the terminal's reset."""
         with session.lock:
-            state = session.state
-            state.mastery = None
-            state.attempts = []
-            state.revealed = 0
-            state.challenge_shown = False
-            session.projections.clear()
+            session.mastery = None
+            session.attempts = []
+            session.revealed = 0
+            session.challenge_shown = False
             return {"session": self.snapshot(session)}
 
     # internals
-    @contextlib.contextmanager
-    def _exclusive(self) -> Iterator[None]:
-        if not self.execution.acquire(timeout=EXECUTION_WAIT):
+    def _demand(self, outcome: Outcome, *, diagnosing: bool) -> Dict[str, Any]:
+        """Turn a sandbox outcome into either the plain result or the right
+        refusal. A diagnosis that overran its ceiling is not an attempt; a
+        challenge run that overran comes back as a run that hit the budget; a
+        fault in the analyser itself is a server error, not the learner's.
+        """
+        if outcome.ok and outcome.result is not None:
+            return outcome.result
+        if outcome.status == "down":
             raise WebError(
-                503, "busy",
-                "The tutor is busy with other learners' code. Try again in a moment.",
+                503, "unavailable",
+                "The analysis service is not running. Ask whoever is hosting the pilot to restart it.",
             )
-        try:
-            yield
-        finally:
-            self.execution.release()
+        if outcome.status == "error":
+            # a caught exception inside the analyser, not an overrun: a server
+            # fault. The type name carries no student content; it is logged,
+            # never shown, and the HTTP layer turns the raise into a fixed 500.
+            sys.stderr.write(f"dmas web: the analyser failed with {outcome.message or 'an error'}\n")
+            raise WebError(500, "internal", "the server failed to handle the request")
+        if not diagnosing:
+            # the editor's code blew its ceiling (limit) or died (crash) on the
+            # challenge input; either way the run hit the wall
+            return {"run": {
+                "input": None, "ok": False, "value": None,
+                "error": "The code used more time or memory than the tutor allows.",
+                "budget": True, "required": None, "agrees": None,
+            }}
+        if outcome.status == "limit":
+            raise WebError(
+                422, "did_not_finish",
+                "Your program used more time or memory than the tutor allows, so it could not be "
+                "analysed. Look for a loop that never ends, unbounded recursion, or a value that "
+                "grows without limit.",
+            )
+        raise WebError(
+            422, "did_not_finish",
+            "The analysis could not be completed for this code. Simplify it and try again.",
+        )
 
     def _latest(self, session: WebSession, index: Any) -> Projection:
         if not isinstance(index, int) or isinstance(index, bool):
             raise WebError(400, "bad_request", "attempt must be an integer")
-        latest = session.state.latest
+        latest = session.latest
         if latest is None:
             raise WebError(409, "no_attempt", "Diagnose some code first.")
         if index != latest.index:
@@ -431,54 +466,28 @@ class TutorService:
                 "Guidance belongs to the latest attempt only.",
                 latest=latest.index,
             )
-        return session.projections[latest.index]
+        return latest.projection
 
-    def _project(
-        self,
-        index: int,
-        result: Any,
-        source: str,
-        previous: Any,
-        notes: List[Dict[str, str]],
-    ) -> Projection:
-        boundary = Boundary(
-            self.verifier, result.problem, source, self.config.intervention.max_leakage
+    def _build_projection(self, result: Dict[str, Any]) -> Projection:
+        return Projection(
+            view=result["view"],
+            summary=result["summary"],
+            hints=tuple(result["hints"]),
+            challenge=result["challenge"],
+            challenge_args=result["challenge_args"],
+            has_required=result["has_required"],
+            diff=result["diff"],
         )
-        view = views.attempt_view(
-            result, index=index, source=source, config=self.config, graph=self.graph,
-            boundary=boundary,
-        )
-        view["notes"] = notes + view["notes"]
-        hints = result.intervention.hints
-        sealed = tuple(
-            views.hint_view(hint, rung=rung, total=len(hints), graph=self.graph, boundary=boundary)
-            for rung, hint in enumerate(hints, start=1)
-        )
-        challenge = result.intervention.challenge
-        counterexample = result.diagnosis.counterexample
-        projection = Projection(
-            view=view,
-            summary=views.summary_view(index, result),
-            hints=sealed,
-            challenge=(
-                views.challenge_view(challenge, boundary=boundary) if challenge is not None else None
-            ),
-            challenge_args=(
-                tuple(challenge.args) if challenge is not None and challenge.args is not None else None
-            ),
-            required=counterexample.reference_output if counterexample is not None else None,
-            has_required=counterexample is not None,
-            diff=(
-                views.diff_view(previous.result, result, self.graph) if previous is not None else None
-            ),
-        )
-        if boundary.replaced:
-            self.boundary_replacements += boundary.replaced
+
+    def _log_replacements(self, index: int, result: Dict[str, Any]) -> None:
+        replaced = int(result.get("replaced", 0))
+        if replaced:
+            self.boundary_replacements += replaced
+            backend = result.get("view", {}).get("backend", "?")
             sys.stderr.write(
-                f"dmas web: the answer-leakage check on the way out replaced {boundary.replaced} "
-                f"item(s) of attempt {index} ({result.telemetry.backend})\n"
+                f"dmas web: the answer-leakage check on the way out replaced {replaced} "
+                f"item(s) of attempt {index} ({backend})\n"
             )
-        return projection
 
 
 # helpers
@@ -488,7 +497,8 @@ def check_source(source: Any) -> str:
     A file that does not parse is not evidence about a belief: the pipeline
     would report no finding, and the session would credit the concept as
     repaired. So it never becomes an attempt; the learner gets the line and
-    column instead, which is what an editor owes them anyway.
+    column instead, which is what an editor owes them anyway. This runs in the
+    HTTP process because parsing and compiling execute nothing.
     """
     if not isinstance(source, str):
         raise WebError(400, "bad_request", "source must be text")
@@ -520,6 +530,32 @@ def check_source(source: Any) -> str:
     return source
 
 
+def _task_ref(spec: ProblemSpec) -> Tuple[str, str]:
+    """How the child is told which task this is, without shipping the spec
+    (and its reference solution): rebuild it there from the id.
+    """
+    if spec.pid == "freeform":
+        return ("freeform", spec.entry_point)
+    return ("known", spec.pid)
+
+
+def _mastery_data(state: Optional[MasteryState]) -> Optional[Dict[str, Any]]:
+    if state is None:
+        return None
+    return {"posterior": dict(state.posterior), "observations": dict(state.observations)}
+
+
+def _carry(data: Dict[str, Any]) -> Carry:
+    return Carry(
+        findings=tuple(data["findings"]),
+        target_concept=data["target_concept"],
+        root_cause=data["root_cause"],
+        checks=tuple(data["checks"]) if data["checks"] is not None else None,
+        failing=data["failing"],
+        posterior=dict(data["posterior"]),
+    )
+
+
 def _known_task(task: str) -> ProblemSpec:
     try:
         return get_problem(task)
@@ -542,14 +578,3 @@ def _detection_notes(spec: ProblemSpec, matches: Tuple[ProblemSpec, ...]) -> Lis
                     .format(spec.entry_point),
         }]
     return [{"kind": "task", "text": f"Detected the task “{spec.title}” from {spec.entry_point}()."}]
-
-
-def _error_line(kind: Optional[str], message: Optional[str]) -> str:
-    text = ": ".join(part for part in (kind, message) if part)
-    return text if len(text) <= 200 else text[:199] + "…"
-
-
-@contextlib.contextmanager
-def _quiet() -> Iterator[None]:
-    with contextlib.redirect_stdout(_Discard()):
-        yield

@@ -33,6 +33,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 from ..agents.evaluator import SocraticEvaluatorAgent
 from ..agents.intervention import _FALLBACK_RUNGS
 from ..agents.verifier import ComplianceVerifier
+from ..cli.session import Carry
 from ..config import Config
 from ..domain import Challenge, Hint, ProblemSpec, TutoringResult
 from ..knowledge.graph import KnowledgeGraph
@@ -394,40 +395,34 @@ def challenge_view(challenge: Challenge, *, boundary: Boundary) -> Dict[str, Any
     }
 
 
-def diff_view(previous: TutoringResult, current: TutoringResult, graph: KnowledgeGraph) -> Dict[str, Any]:
+def diff_view(previous: Carry, current: Carry, graph: KnowledgeGraph) -> Dict[str, Any]:
     """Attempt n against attempt n-1, by the rules of the terminal's diff."""
-    before = {hit.misconception_id for hit in previous.diagnosis.hits}
-    after = {hit.misconception_id for hit in current.diagnosis.hits}
+    before = set(previous.findings)
+    after = set(current.findings)
 
     checks = None
-    if previous.diagnosis.checks_total and current.diagnosis.checks_total:
+    if previous.checks and current.checks:
         checks = {
-            "before": {"passed": previous.diagnosis.checks_passed,
-                       "total": previous.diagnosis.checks_total},
-            "after": {"passed": current.diagnosis.checks_passed,
-                      "total": current.diagnosis.checks_total},
+            "before": {"passed": previous.checks[0], "total": previous.checks[1]},
+            "after": {"passed": current.checks[0], "total": current.checks[1]},
         }
 
     # the concept the learner was working on, not whatever the new diagnosis
     # points at
-    focus = (
-        previous.intervention.target_concept
-        or previous.alignment.root_cause
-        or current.intervention.target_concept
-    )
+    focus = previous.target_concept or previous.root_cause or current.target_concept
     mastery = None
-    if focus and focus in previous.mastery_posterior and focus in current.mastery_posterior:
+    if focus and focus in previous.posterior and focus in current.posterior:
         mastery = {
             **concept_ref(focus, graph),
-            "before": _num(previous.mastery_posterior[focus]),
-            "after": _num(current.mastery_posterior[focus]),
+            "before": _num(previous.posterior[focus]),
+            "after": _num(current.posterior[focus]),
         }
     return {
         "resolved": [misconception_ref(mid) for mid in sorted(before - after)],
         "persists": [misconception_ref(mid) for mid in sorted(before & after)],
         "new": [misconception_ref(mid) for mid in sorted(after - before)],
         # a finding that disappears while an input still fails is not a repair
-        "still_failing": current.diagnosis.counterexample is not None,
+        "still_failing": current.failing,
         "checks": checks,
         "mastery": mastery,
     }

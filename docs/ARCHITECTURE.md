@@ -43,8 +43,9 @@ all, so every arrow below is code in this repository.
   plus the interactive session, which owns the one thing a single call cannot:
   continuity across a learner's attempts.
 * **`web/`** — the same session behind HTTP. It calls the session's rules in
-  `cli/session.py` (`detect_problem`, `record_attempt`) instead of copying them,
-  so the terminal and the browser cannot drift apart.
+  `cli/session.py` (`detect_problem`, `settle_mastery`) instead of copying them,
+  so the terminal and the browser cannot drift apart, and runs every analysis in
+  a killable child process (`web/sandbox.py`, `web/jobs.py`).
 
 ## The blackboard
 
@@ -139,9 +140,10 @@ front end, both served by the standard library's threading HTTP server. It adds
 no logic of its own to diagnosis, alignment or intervention; what it adds is what
 a server needs and a terminal does not.
 
-**One projection, by whitelist.** A `TutoringResult` is never serialised. Each
-attempt is projected once, in `web/views.py`, right after the orchestrator
-returns, and the client only ever sees that projection. Left out on purpose: the
+**One projection, by whitelist.** A `TutoringResult` is never serialised, and in
+fact never exists in the HTTP process at all (see the isolation note below).
+Each attempt is projected once, in `web/views.py`, inside the child that ran the
+analysis, and the client only ever sees that projection. Left out on purpose: the
 reference solution and the oracle, the gate log (it keeps every rejected
 candidate verbatim), the telemetry warnings verbatim (a gate rejection quotes the
 text it rejected; they become fixed sentences), the challenge's expected insight
@@ -164,17 +166,37 @@ asking ahead is refused, and only the latest attempt has a ladder.
 `isinstance` can dispatch to a method the student defined, which would run
 outside the step budget. The projection reads exact builtin types only.
 
-**One execution lock.** `GuardedRunner` lowers the interpreter's recursion limit
-for a run and restores it afterwards; the limit is process-wide, so concurrent
-runs would leave it lowered. Every execution of student code holds one lock, and
-a request that waits too long for it is told the tutor is busy. The step budget
-and the deadline are untouched.
+**A process you can kill.** The guarded interpreter stops a loop it can count,
+but two things run where it cannot: an expression that finishes inside one C call
+(`10 ** 10 ** 8`, a huge allocation) and a method the student defined that the
+pipeline calls outside the trace hook (`__repr__`, `__eq__`). On one person's
+machine that is their problem; on a shared server it is everyone's. So every
+analysis runs in its own child process (`web/sandbox.py`, `web/jobs.py`):
+
+- a single-threaded **zygote** is forked once at start-up, while the HTTP process
+  is still single-threaded, and holds the built orchestrator. It runs no student
+  code itself.
+- for each job it forks a **worker** that sets `RLIMIT_CPU` and `RLIMIT_AS` on
+  itself, runs the one diagnosis or challenge, writes the projection to a pipe and
+  exits. A worker that overruns is sent `SIGKILL`; its death frees a core and its
+  memory and disturbs no one. Workers run concurrently, so there is no execution
+  lock and no process-wide recursion-limit contention — each worker changes the
+  limit in its own copy and dies with it.
+- the HTTP process **never forks after start and never runs student code**. It
+  speaks to the zygote over a socketpair and keeps only plain, already-projected
+  session state. The reference solution, the model's chain of thought and the
+  gate's rejected candidates exist only inside a worker and die with it; only the
+  whitelisted projection — built by `web/views.py`, which reads student values
+  without calling their methods — ever crosses back.
+
+A diagnosis that overruns is not an attempt (the learner is told to look for an
+unbounded loop); a challenge run that overruns comes back as a run that hit the
+budget. Where `fork` is unavailable, or with `--no-sandbox`, the same jobs run
+in-process under a lock with no ceiling — a supervised, trusted-network pilot
+only, and the banner says so. The server still listens on localhost unless given
+`--host`.
 
 **Not an attempt.** Code that does not parse, or defines no function, is refused
 with its line and column instead of being diagnosed: the pipeline would report no
-finding for it and the session would credit the concept as repaired.
-
-The guarded interpreter is still not a sandbox. Work done inside one C call
-(`10 ** 10 ** 8`, a huge allocation) or inside a method the student defined and
-the core invokes outside the trace hook is not bounded by the step budget, so the
-server listens on localhost unless told otherwise.
+finding for it and the session would credit the concept as repaired. This check
+is parse-and-compile only, so it runs in the HTTP process, before a worker.

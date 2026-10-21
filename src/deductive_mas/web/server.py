@@ -368,20 +368,27 @@ def serve(
     port: int = 8765,
     demo: bool = False,
     secure_cookie: bool = False,
+    isolate: bool = True,
     announce: Callable[[str], None] = print,
 ) -> int:
-    service = TutorService(config or Config(), demo=demo)
+    service = TutorService(config or Config(), demo=demo, isolate=isolate)
     server = make_server(service, host=host, port=port, secure_cookie=secure_cookie)
     bound_host, bound_port = server.server_address[:2]
     shown = "127.0.0.1" if bound_host in ("0.0.0.0", "") else bound_host
     announce("")
     announce(f"  DMAS web  ·  http://{shown}:{bound_port}")
     announce(f"  reasoning {service.orchestrator.reasoner.name}  ·  "
-             f"demo {'on' if demo else 'off'}  ·  ctrl-c to stop")
+             f"demo {'on' if demo else 'off'}  ·  "
+             f"isolation {'on' if service.isolated else 'off'}  ·  ctrl-c to stop")
+    if not service.isolated:
+        announce(
+            "  note: process isolation is off. The guarded interpreter is a step budget and a "
+            "deadline, not a sandbox, so a crafted submission can hang or exhaust this process. "
+            "Run like this only on a trusted network you are watching."
+        )
     if bound_host not in ("127.0.0.1", "localhost", "::1"):
         announce(
-            "  note: listening beyond this machine. The guarded interpreter is a step budget "
-            "and a deadline, not a sandbox; see the README before exposing it to a network."
+            "  note: listening beyond this machine; see the README before exposing it to a network."
         )
     announce("")
     try:
@@ -390,4 +397,5 @@ def serve(
         announce("\n  stopped")
     finally:
         server.server_close()
+        service.close()
     return 0

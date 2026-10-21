@@ -1,8 +1,10 @@
+import dataclasses
 import http.client
 import json
 import socket
 import sys
 import threading
+import time
 from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 import pytest
@@ -10,11 +12,13 @@ import pytest
 from deductive_mas.config import Config
 from deductive_mas.data.problems import all_problems, problem
 from deductive_mas.data.submissions import submission
+from deductive_mas.domain import Submission
 from deductive_mas.llm.base import Completion, Task
 from deductive_mas.llm.registry import Reasoner
 from deductive_mas.agents.orchestrator import DeductiveOrchestrator
 from deductive_mas.web import TutorService, make_server
-from deductive_mas.web.service import WebSession
+from deductive_mas.web.jobs import build_context, run_diagnose
+from deductive_mas.web.service import WebError, WebSession
 from deductive_mas.web.views import notes_from_warnings, render_value, safe_equivalent
 
 BROKEN = submission("lb_inclusive_bound").source
@@ -98,6 +102,7 @@ def _serve(service: TutorService) -> Iterator[Tuple[TutorService, int]]:
     finally:
         server.shutdown()
         server.server_close()
+        service.close()
         thread.join(timeout=5)
 
 
@@ -325,12 +330,11 @@ class TestTheGateHoldsAtTheBoundary:
         client.post("/api/attempts/1/challenge/run", {"source": BROKEN})
         client.get("/api/session")
 
-        # the leaking path really was exercised
-        session = service.sessions.get(client.cookie)
-        assert session is not None
-        result = session.state.latest.result
-        assert any("replaced" in w for w in result.telemetry.warnings)
-        assert any(entry["candidate"] for entry in result.gate_log)
+        # the leaking backend really produced this attempt; the raw result,
+        # its gate log and the rejected candidates never existed in this
+        # process -- they lived and died in the analysis child.
+        assert service.meta()["backend"] == "leaking"
+        assert body["session"]["current"]["backend"] == "leaking"
 
         everything = "\n".join(_without_source(body) for body in client.bodies)
         for leaked in (
@@ -474,7 +478,7 @@ class TestHttp:
         def broken(*_args: Any, **_kwargs: Any) -> Any:
             raise RuntimeError("projection failed")
 
-        monkeypatch.setattr(service, "_project", broken)
+        monkeypatch.setattr(service, "_build_projection", broken)
         assert client.post("/api/attempts", {"source": BROKEN, "task": "lower_bound"})[0] == 500
         monkeypatch.undo()
         status, body = client.get("/api/session")
@@ -503,7 +507,7 @@ class TestHttp:
 
     def test_examples_only_in_demo_mode(self, client: Client, config: Config) -> None:
         assert client.get("/api/examples")[0] == 404
-        examples = TutorService(config, demo=True).examples()
+        examples = TutorService(config, demo=True, isolate=False).examples()
         assert examples and all(not submission(e["id"]).functionally_correct for e in examples)
 
     def test_concepts(self, client: Client) -> None:
@@ -539,3 +543,169 @@ class TestUnits:
 
         args = build_parser().parse_args(["serve", "--port", "0", "--demo"])
         assert args.port == 0 and args.demo and args.host == "127.0.0.1"
+        assert args.no_sandbox is False
+        assert build_parser().parse_args(["serve", "--no-sandbox"]).no_sandbox is True
+
+
+# code that the step budget and the deadline inside the interpreter cannot
+# stop: an operation that runs to completion in one C call, and a method the
+# student defined that the pipeline calls outside the trace hook. On a shared
+# server these must be contained by the operating system, in a child that can
+# be killed, without disturbing anyone else.
+HOSTILE_REPR = (
+    "class B:\n"
+    "    def __repr__(self):\n"
+    "        while True:\n"
+    "            pass\n\n"
+    "def lower_bound(a, x):\n"
+    "    return B()\n"
+)
+CPU_BOMB = "def lower_bound(a, x):\n    return 10 ** (10 ** 8)\n"
+MEM_BOMB = "def lower_bound(a, x):\n    big = [0] * (10 ** 10)\n    return len(big)\n"
+
+
+def _hardened_config(config: Config) -> Config:
+    """Small ceilings so the kills happen quickly in the test."""
+    return dataclasses.replace(config, execution=dataclasses.replace(
+        config.execution,
+        sandbox_cpu_seconds=2.0, sandbox_wall_seconds=3.0,
+        sandbox_address_space_mb=512, sandbox_workers=3,
+    ))
+
+
+@pytest.fixture(scope="module")
+def hardened(config: Config) -> Iterator[Tuple[TutorService, int]]:
+    yield from _serve(TutorService(_hardened_config(config)))
+
+
+@pytest.mark.skipif(not hasattr(__import__("os"), "fork"), reason="needs fork")
+class TestTheSandbox:
+    def test_it_really_is_isolated(self, hardened: Tuple[TutorService, int]) -> None:
+        service, port = hardened
+        assert service.isolated is True
+        assert Client(port).get("/api/meta")[1]["isolated"] is True
+
+    def test_a_c_level_cpu_bomb_is_killed_and_is_not_an_attempt(
+        self, hardened: Tuple[TutorService, int]
+    ) -> None:
+        _service, port = hardened
+        client = Client(port)
+        start = time.monotonic()
+        status, body = client.post("/api/attempts", {"source": CPU_BOMB, "task": "lower_bound"})
+        assert status == 422 and body["error"]["code"] == "did_not_finish"
+        assert time.monotonic() - start < 8.0  # the ~2s ceiling, not left to run
+        assert client.get("/api/session")[1]["session"]["attempts"] == []
+
+    def test_a_hostile_repr_outside_the_trace_is_killed(
+        self, hardened: Tuple[TutorService, int]
+    ) -> None:
+        _service, port = hardened
+        client = Client(port)
+        start = time.monotonic()
+        status, body = client.post("/api/attempts", {"source": HOSTILE_REPR, "task": "lower_bound"})
+        assert status == 422 and body["error"]["code"] == "did_not_finish"
+        assert time.monotonic() - start < 8.0
+
+    def test_a_memory_bomb_cannot_exhaust_the_host(
+        self, hardened: Tuple[TutorService, int]
+    ) -> None:
+        _service, port = hardened
+        client = Client(port)
+        # either refused as over-budget or caught as a failing run; never a
+        # host out-of-memory, and the server keeps serving.
+        status, _body = client.post("/api/attempts", {"source": MEM_BOMB, "task": "lower_bound"})
+        assert status in (200, 422)
+        assert client.get("/api/meta")[0] == 200
+
+    def test_a_runaway_does_not_block_other_learners(
+        self, hardened: Tuple[TutorService, int]
+    ) -> None:
+        _service, port = hardened
+        running = threading.Event()
+
+        def runaway() -> None:
+            running.set()
+            Client(port).post("/api/attempts", {"source": HOSTILE_REPR, "task": "lower_bound"})
+
+        thread = threading.Thread(target=runaway, daemon=True)
+        thread.start()
+        running.wait(5)
+        time.sleep(0.2)  # let the runaway take a worker and start spinning
+        start = time.monotonic()
+        status, _body = Client(port).post("/api/attempts", {"source": BROKEN, "task": "lower_bound"})
+        elapsed = time.monotonic() - start
+        assert status == 200
+        assert elapsed < 2.0  # answered while the runaway is still being killed
+        thread.join(timeout=10)
+
+    def test_a_challenge_run_that_overruns_is_a_budget_hit_not_a_crash(
+        self, hardened: Tuple[TutorService, int]
+    ) -> None:
+        _service, port = hardened
+        client = Client(port)
+        client.post("/api/attempts", {"source": BROKEN, "task": "lower_bound"})
+        client.post("/api/attempts/1/challenge")
+        status, ran = client.post("/api/attempts/1/challenge/run", {"source": CPU_BOMB})
+        assert status == 200
+        assert ran["run"]["ok"] is False and ran["run"]["budget"] is True
+
+    def test_the_server_keeps_serving_after_a_worker_is_killed(
+        self, hardened: Tuple[TutorService, int]
+    ) -> None:
+        _service, port = hardened
+        client = Client(port)
+        assert client.post("/api/attempts", {"source": CPU_BOMB, "task": "lower_bound"})[0] == 422
+        status, body = client.post("/api/attempts", {"source": BROKEN, "task": "lower_bound"})
+        assert status == 200 and body["session"]["current"]["status"] == "diagnosis"
+
+    def test_a_down_sandbox_is_reported_not_hidden(self, config: Config) -> None:
+        service = TutorService(_hardened_config(config))
+        try:
+            service.sandbox.close()
+            session = service.sessions.create()
+            with pytest.raises(WebError) as refused:
+                service.submit(session, BROKEN, "lower_bound")
+            assert refused.value.status == 503 and refused.value.code == "unavailable"
+        finally:
+            service.close()
+
+
+class TestTheInProcessFallback:
+    def test_it_runs_the_same_pipeline_without_a_child(self, config: Config) -> None:
+        service = TutorService(config, isolate=False)
+        try:
+            assert service.isolated is False and service.meta()["isolated"] is False
+            session = service.sessions.create()
+            body = service.submit(session, BROKEN, "lower_bound")
+            assert body["session"]["current"]["status"] == "diagnosis"
+        finally:
+            service.close()
+
+
+class TestTheChildIsTheBoundary:
+    def test_a_leaking_result_becomes_a_clean_projection_in_the_child(self, config: Config) -> None:
+        orchestrator = DeductiveOrchestrator(
+            config, reasoner=Reasoner(config.llm, backend=_LeakingBackend())
+        )
+        context = build_context(config, orchestrator)
+        spec = problem("lower_bound")
+
+        # the raw result really does carry the answer and the gate's log of
+        # rejected candidates -- this is what must never leave the child.
+        raw = orchestrator.tutor(
+            spec, Submission(sid="x", problem_id="lower_bound", source=BROKEN, author="t")
+        )
+        assert any(entry["candidate"] for entry in raw.gate_log)
+
+        out = run_diagnose(context, {
+            "source": BROKEN, "task": ("known", "lower_bound"), "index": 1,
+            "mastery": None, "previous": None, "notes": [],
+        })
+        blob = _without_source(json.dumps(out))
+        for leaked in (
+            "hi = len(a)", "lo, hi = 0, len(a)", "SECRET-INSIGHT", "SECRET-NARRATIVE",
+            "gate_log", "candidate", "expected_insight", "narrative",
+        ):
+            assert leaked not in blob, leaked
+        for line in _reference_lines(BROKEN):
+            assert line not in blob, line

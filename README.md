@@ -135,9 +135,19 @@ the gate log, the model's reasoning, anything the gate rejected and every rung
 not yet asked for never leave the server, not even in an error. Code that does
 not parse is shown with its line and column instead of becoming an attempt.
 `--demo` adds flawed attempts from the bank as examples; leave it off for
-learners, since those are near-solutions of the tasks. The interpreter is the
-same guarded one, not a sandbox, so the server listens on localhost unless given
-`--host`; see `docs/ARCHITECTURE.md` before putting it on a network.
+learners, since those are near-solutions of the tasks.
+
+Every learner's code runs in a short-lived child process with a CPU ceiling
+and a memory ceiling the operating system enforces, killed if it overruns, so
+a crafted submission that the interpreter's own step budget cannot see — an
+expression that runs to completion inside one C call, a method the learner
+defined that the pipeline calls directly — cannot hang or exhaust the server
+or hold up anyone else. The orchestrator and the reference solution live only
+in those children; the HTTP process runs no learner code at all. On a machine
+without `fork`, or with `--no-sandbox`, analyses run in-process with no such
+ceiling — only for a supervised pilot on a trusted network. The server still
+listens on localhost unless given `--host`; see `docs/ARCHITECTURE.md` before
+putting it on a network.
 
 ---
 
@@ -483,7 +493,8 @@ src/deductive_mas/
   stats/         special functions, tests, effect sizes, power, agreement
   ui/            terminal user interface, the interactive UI
   cli/           terminal presentation, the dmas command, the interactive session
-  web/           the same session in a browser: HTTP server, API, front end
+  web/           the same session in a browser: HTTP server, API, process
+                 isolation (zygote + killable per-analysis child), front end
 tests/           the test suite
 experiments/     result files, figure and number scripts, the live-run driver
 docs/

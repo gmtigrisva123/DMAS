@@ -67,6 +67,17 @@ class ExecutionConfig:
     search_max_seconds: float = 0.4
     search_random_attempts: int = 80
 
+    # The step budget and the deadline above are enforced by the trace hook,
+    # which a C-level operation (a huge int power, a giant allocation) and a
+    # student-defined __repr__/__eq__ run outside of. The web server runs every
+    # analysis in a short-lived child process so those cannot hang or exhaust
+    # the host; these are the child's own hard ceilings. A full analysis is
+    # well under a second of CPU, so the defaults are generous.
+    sandbox_cpu_seconds: float = 8.0          # RLIMIT_CPU, then SIGKILL one second later
+    sandbox_address_space_mb: int = 1024      # RLIMIT_AS: caps a memory bomb
+    sandbox_wall_seconds: float = 12.0        # parent's kill deadline, backstop to the CPU limit
+    sandbox_workers: int = 4                  # analyses that may run at once
+
 
 @dataclass(frozen=True)
 class DiagnosisConfig:

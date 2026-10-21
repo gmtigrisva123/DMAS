@@ -470,6 +470,7 @@ def cmd_serve(args: argparse.Namespace) -> int:
             port=args.port,
             demo=args.demo,
             secure_cookie=args.secure_cookie,
+            isolate=not args.no_sandbox,
         )
     except OSError as exc:
         raise DMASError(f"cannot listen on {args.host}:{args.port}: {exc.strerror or exc}")
@@ -575,6 +576,9 @@ def build_parser() -> argparse.ArgumentParser:
                         "they are near-solutions of the tasks)")
     p.add_argument("--secure-cookie", action="store_true",
                    help="mark the session cookie Secure (when served behind HTTPS)")
+    p.add_argument("--no-sandbox", action="store_true",
+                   help="run analyses in-process instead of in a killable child; no CPU or "
+                        "memory ceiling is enforced, so only for a supervised, trusted pilot")
     p.set_defaults(func=cmd_serve)
 
     p = sub.add_parser("diagnose", parents=[common], help="diagnose one submission")

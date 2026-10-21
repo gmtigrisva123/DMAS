@@ -169,6 +169,75 @@ def detect_problem(source: str) -> Tuple[ProblemSpec, Tuple[ProblemSpec, ...]]:
     return freeform_problem(names[0] if names else "solve"), ()
 
 
+@dataclass(frozen=True)
+class Carry:
+    """What one attempt leaves for the next, as plain data: the beliefs it
+    named, the concepts the learner was pointed at, and the estimate after it.
+    The repair credit and the attempt diff need nothing else from it.
+    """
+
+    findings: Tuple[str, ...]
+    target_concept: Optional[str]
+    root_cause: Optional[str]
+    checks: Optional[Tuple[int, int]]
+    failing: bool
+    posterior: Dict[str, float]
+
+    @classmethod
+    def of(cls, result: TutoringResult) -> "Carry":
+        diagnosis = result.diagnosis
+        return cls(
+            findings=tuple(hit.misconception_id for hit in diagnosis.hits),
+            target_concept=result.intervention.target_concept,
+            root_cause=result.alignment.root_cause,
+            checks=(
+                (diagnosis.checks_passed, diagnosis.checks_total)
+                if diagnosis.checks_total else None
+            ),
+            failing=diagnosis.counterexample is not None,
+            posterior=dict(result.mastery_posterior),
+        )
+
+
+def settle_mastery(
+    orchestrator: DeductiveOrchestrator,
+    mastery: Optional[MasteryState],
+    result: TutoringResult,
+    previous: Optional[Carry],
+    graph: Optional[KnowledgeGraph] = None,
+) -> Optional[MasteryState]:
+    """The estimate after an attempt: the pipeline's posterior, plus the
+    repair credit when the previous attempt named a belief and this one does
+    not. A credit is written back into result, so what is shown agrees.
+    """
+    graph = graph or orchestrator.graph
+    if result.mastery_posterior:
+        mastery = MasteryState(
+            posterior=dict(result.mastery_posterior),
+            observations=dict(result.mastery_observations),
+        )
+    if (
+        previous is not None
+        and not result.diagnosis.hits
+        and previous.findings
+        and mastery is not None
+    ):
+        # the learner was pointed at a concept, edited, and the finding is gone.
+        # That is evidence about that concept (the strongest kind a tutor gets) and
+        # only the session, which remembers the previous turn, can record it.
+        repaired = [
+            cid for cid in (previous.target_concept, previous.root_cause)
+            if cid and cid in graph
+        ]
+        if repaired:
+            mastery = orchestrator.tracker.apply_success(
+                mastery, dict.fromkeys(repaired), weight=0.8
+            )
+            result.mastery_posterior = dict(mastery.posterior)
+            result.mastery_observations = dict(mastery.observations)
+    return mastery
+
+
 def record_attempt(
     orchestrator: DeductiveOrchestrator,
     state: SessionState,
@@ -180,7 +249,6 @@ def record_attempt(
     """Diagnose state.source and fold the result into the session: mastery
     carried in, a repaired belief credited, the ladder reset.
     """
-    graph = graph or orchestrator.graph
     index = len(state.attempts) + 1
     submission = Submission(
         sid=f"{label}#{index}",
@@ -189,35 +257,11 @@ def record_attempt(
         author="session",
     )
     result = orchestrator.tutor(spec, submission, mastery=state.mastery)
-
-    if result.mastery_posterior:
-        state.mastery = MasteryState(
-            posterior=dict(result.mastery_posterior),
-            observations=dict(result.mastery_observations),
-        )
     previous = state.latest
-    if (
-        previous is not None
-        and not result.diagnosis.hits
-        and previous.result.diagnosis.hits
-        and state.mastery is not None
-    ):
-        # the learner was pointed at a concept, edited, and the finding is gone.
-        # That is evidence about that concept (the strongest kind a tutor gets) and
-        # only the session, which remembers the previous turn, can record it.
-        repaired = [
-            cid for cid in (
-                previous.result.intervention.target_concept,
-                previous.result.alignment.root_cause,
-            )
-            if cid and cid in graph
-        ]
-        if repaired:
-            state.mastery = orchestrator.tracker.apply_success(
-                state.mastery, dict.fromkeys(repaired), weight=0.8
-            )
-            result.mastery_posterior = dict(state.mastery.posterior)
-            result.mastery_observations = dict(state.mastery.observations)
+    state.mastery = settle_mastery(
+        orchestrator, state.mastery, result,
+        Carry.of(previous.result) if previous is not None else None, graph,
+    )
     attempt = Attempt(index=index, label=label, source=state.source, result=result)
     state.attempts.append(attempt)
     state.revealed = 0
