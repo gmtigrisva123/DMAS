@@ -200,3 +200,12 @@ only, and the banner says so. The server still listens on localhost unless given
 with its line and column instead of being diagnosed: the pipeline would report no
 finding for it and the session would credit the concept as repaired. This check
 is parse-and-compile only, so it runs in the HTTP process, before a worker.
+
+**The repair credit.** When a learner is pointed at a concept, edits, and the
+finding is gone, that is strong evidence the belief was mended, and
+`settle_mastery` (shared with the terminal) credits it. Two conditions keep the
+credit honest: the attempt must no longer fail on any input — a finding that
+disappears while a counterexample remains is a patched symptom, not a repair —
+and it must be a retry of the *same* task, so a different task's success never
+credits the concept the learner was last working on. The terminal and the
+browser apply the same two rules, through the same function.

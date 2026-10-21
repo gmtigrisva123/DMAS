@@ -23,6 +23,7 @@ BROKEN = (
 )
 FIXED = BROKEN.replace("hi = len(a) - 1", "hi = len(a)")
 HALF = FIXED.replace("while lo < hi", "while lo <= hi")      # fixes one thing, breaks another
+LOOPING = FIXED.replace("lo = mid + 1", "lo = mid")          # finding gone, but loops forever
 
 UNKNOWN_TASK = (
     "def walk(graph, start):\n"
@@ -310,3 +311,55 @@ class TestEntryPoint:
             "--backend", "offline", "--no-cache", "--color", "never",
         ])
         assert code == 0 and "lower_bound" in capsys.readouterr().out
+
+
+class TestTheRepairCredit:
+    """The repair credit is evidence that a named belief was mended. It must
+    not fire for a retry that still fails, nor leak across a task switch.
+    """
+
+    def test_a_still_failing_retry_earns_no_repair_credit(
+        self, orchestrator: "object", graph: "object", config: Config
+    ) -> None:
+        from deductive_mas.cli.session import SessionState, detect_problem, record_attempt
+
+        state = SessionState()
+        spec, _ = detect_problem(BROKEN)
+        state.problem, state.source = spec, BROKEN
+        first = record_attempt(orchestrator, state, spec, label="t", graph=graph)
+        target = first.result.intervention.target_concept
+        assert target and first.result.diagnosis.hits
+
+        state.source = LOOPING  # the finding is gone, but an input still fails
+        second = record_attempt(orchestrator, state, spec, label="t", graph=graph)
+        assert not second.result.diagnosis.hits
+        assert second.result.diagnosis.counterexample is not None
+        # no credit: the concept is not flipped to "secure" by a still-failing retry
+        assert state.mastery is not None
+        assert state.mastery.posterior[target] < config.knowledge.mastery_threshold
+        assert (second.result.mastery_posterior[target]
+                <= first.result.mastery_posterior[target] + 1e-9)
+
+    def test_no_repair_credit_across_a_task_switch(
+        self, orchestrator: "object", graph: "object"
+    ) -> None:
+        from deductive_mas.cli.session import SessionState, detect_problem, record_attempt
+        from deductive_mas.data.submissions import submission as get_submission
+
+        state = SessionState()
+        spec_lb, _ = detect_problem(BROKEN)
+        state.problem, state.source = spec_lb, BROKEN
+        first = record_attempt(orchestrator, state, spec_lb, label="t", graph=graph)
+        target = first.result.intervention.target_concept
+        assert state.mastery is not None
+        before = state.mastery.posterior[target]
+
+        other = get_submission("hc_correct").source  # a different task, solved cleanly (no finding)
+        spec_other, _ = detect_problem(other)
+        assert spec_other.pid != spec_lb.pid
+        state.problem, state.source = spec_other, other
+        second = record_attempt(orchestrator, state, spec_other, label="t", graph=graph)
+        assert not second.result.diagnosis.hits
+        # the other task's success must not credit the first task's concept
+        after = state.mastery.posterior.get(target, before)
+        assert after <= before + 1e-9

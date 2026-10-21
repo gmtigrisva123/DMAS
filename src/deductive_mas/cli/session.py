@@ -219,12 +219,16 @@ def settle_mastery(
     if (
         previous is not None
         and not result.diagnosis.hits
+        and result.diagnosis.counterexample is None
         and previous.findings
         and mastery is not None
     ):
-        # the learner was pointed at a concept, edited, and the finding is gone.
-        # That is evidence about that concept (the strongest kind a tutor gets) and
-        # only the session, which remembers the previous turn, can record it.
+        # the learner was pointed at a concept, edited, and the finding is gone
+        # AND no input still fails. A finding that disappears while a
+        # counterexample remains is not a repair (the diff says the same), so
+        # it earns no credit. That it is evidence about the concept -- the
+        # strongest kind a tutor gets -- and only the session, which remembers
+        # the previous turn, can record it.
         repaired = [
             cid for cid in (previous.target_concept, previous.root_cause)
             if cid and cid in graph
@@ -258,9 +262,17 @@ def record_attempt(
     )
     result = orchestrator.tutor(spec, submission, mastery=state.mastery)
     previous = state.latest
+    # the repair credit is only meaningful against the previous attempt at the
+    # SAME task: crediting a concept because a different task's finding is gone
+    # would be spurious. (The web applies the same rule; this keeps them level.)
+    same_task = (
+        previous is not None
+        and previous.result.problem.pid == spec.pid
+        and previous.result.problem.entry_point == spec.entry_point
+    )
     state.mastery = settle_mastery(
         orchestrator, state.mastery, result,
-        Carry.of(previous.result) if previous is not None else None, graph,
+        Carry.of(previous.result) if same_task else None, graph,
     )
     attempt = Attempt(index=index, label=label, source=state.source, result=result)
     state.attempts.append(attempt)

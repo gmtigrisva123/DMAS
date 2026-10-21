@@ -272,11 +272,15 @@ class TestTheSessionContract:
 
     def test_a_still_failing_retry_is_not_called_a_repair(self, client: Client) -> None:
         looping = FIXED.replace("lo = mid + 1", "lo = mid")
-        client.post("/api/attempts", {"source": BROKEN, "task": "lower_bound"})
+        _status, first = client.post("/api/attempts", {"source": BROKEN, "task": "lower_bound"})
+        root = first["session"]["current"]["alignment"]["root_cause"]["id"]
         _status, body = client.post("/api/attempts", {"source": looping, "task": "lower_bound"})
         current = body["session"]["current"]
         assert current["status"] == "failing"
         assert current["diff"]["still_failing"] is True
+        # and the belief is not credited as repaired: the concept stays unsecured
+        concepts = {c["id"]: c for c in body["session"]["mastery"]["concepts"]}
+        assert root in concepts and concepts[root]["secure"] is False
 
 
 class TestWhatIsNotAnAttempt:
